@@ -17,11 +17,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Inbox
+import androidx.compose.material.icons.filled.MarkEmailRead
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -34,7 +38,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -54,6 +61,8 @@ data class Conversation(
     val lastMessageAt: String,
     val unreadCount: Int
 )
+
+enum class MessagesFilter { ALL, UNREAD }
 
 /**
  * Entry point for the messaging feature. Hand-rolls navigation between the
@@ -86,21 +95,38 @@ fun MessagesScreen(
     onOpenConversation: (Conversation) -> Unit,
     onBack: () -> Unit = {}
 ) {
+    var filter by remember { mutableStateOf(MessagesFilter.ALL) }
+    val unreadTotal = conversations.count { it.unreadCount > 0 }
+    val filtered = when (filter) {
+        MessagesFilter.ALL -> conversations
+        MessagesFilter.UNREAD -> conversations.filter { it.unreadCount > 0 }
+    }
+
     Scaffold(
         containerColor = AppBackground,
-        topBar = { MessagesTopBar() }
+        topBar = {
+            Column {
+                MessagesTopBar(onBack = onBack)
+                MessagesFilterRow(
+                    selected = filter,
+                    unreadTotal = unreadTotal,
+                    onSelect = { filter = it }
+                )
+                HorizontalDivider(color = DividerColor)
+            }
+        }
     ) { innerPadding ->
-        if (conversations.isEmpty()) {
-            EmptyInbox(modifier = Modifier.padding(innerPadding))
-        } else {
-            LazyColumn(
+        when {
+            conversations.isEmpty() -> EmptyInbox(modifier = Modifier.padding(innerPadding))
+            filtered.isEmpty() -> AllCaughtUp(modifier = Modifier.padding(innerPadding))
+            else -> LazyColumn(
                 modifier = Modifier
                     .padding(innerPadding)
                     .fillMaxSize()
                     .background(SurfaceWhite),
                 contentPadding = PaddingValues(vertical = 4.dp)
             ) {
-                items(conversations, key = { it.id }) { conversation ->
+                items(filtered, key = { it.id }) { conversation ->
                     ConversationRow(
                         conversation = conversation,
                         onClick = { onOpenConversation(conversation) }
@@ -117,20 +143,72 @@ fun MessagesScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MessagesTopBar() {
-    Column {
-        TopAppBar(
-            title = {
-                Text(
-                    text = "Messages",
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 18.sp,
-                    color = TextPrimary
+private fun MessagesTopBar(onBack: () -> Unit) {
+    TopAppBar(
+        title = {
+            Text(
+                text = "Messages",
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 18.sp,
+                color = TextPrimary
+            )
+        },
+        navigationIcon = {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = BrandPrimary
                 )
-            },
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceWhite)
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceWhite)
+    )
+}
+
+@Composable
+private fun MessagesFilterRow(
+    selected: MessagesFilter,
+    unreadTotal: Int,
+    onSelect: (MessagesFilter) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(SurfaceWhite)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        FilterPill(
+            label = "All",
+            selected = selected == MessagesFilter.ALL,
+            onClick = { onSelect(MessagesFilter.ALL) }
         )
-        HorizontalDivider(color = DividerColor)
+        FilterPill(
+            label = if (unreadTotal > 0) "Unread ($unreadTotal)" else "Unread",
+            selected = selected == MessagesFilter.UNREAD,
+            onClick = { onSelect(MessagesFilter.UNREAD) }
+        )
+    }
+}
+
+@Composable
+private fun FilterPill(label: String, selected: Boolean, onClick: () -> Unit) {
+    val background = if (selected) BrandPrimary else AppBackground
+    val foreground = if (selected) SurfaceWhite else TextPrimary
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(background)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Text(
+            text = label,
+            color = foreground,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium
+        )
     }
 }
 
@@ -197,6 +275,7 @@ private fun ConversationRow(
 
 @Composable
 private fun UnreadBadge(count: Int) {
+    val label = if (count > 9) "9+" else count.toString()
     Box(
         modifier = Modifier
             .size(20.dp)
@@ -204,11 +283,49 @@ private fun UnreadBadge(count: Int) {
             .background(BrandPrimary),
         contentAlignment = Alignment.Center
     ) {
+        // includeFontPadding adds asymmetric whitespace inside tight glyph boxes;
+        // disabling it (with matched lineHeight) lets contentAlignment actually centre.
         Text(
-            text = if (count > 9) "9+" else count.toString(),
-            color = SurfaceWhite,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold
+            text = label,
+            style = TextStyle(
+                color = SurfaceWhite,
+                fontSize = 11.sp,
+                lineHeight = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                platformStyle = PlatformTextStyle(includeFontPadding = false)
+            )
+        )
+    }
+}
+
+@Composable
+private fun AllCaughtUp(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 32.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            imageVector = Icons.Default.MarkEmailRead,
+            contentDescription = null,
+            tint = BrandPrimary,
+            modifier = Modifier.size(56.dp)
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            text = "You're all caught up",
+            color = TextPrimary,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 17.sp
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "No unread messages right now.",
+            color = TextSecondary,
+            fontSize = 14.sp
         )
     }
 }
@@ -295,18 +412,17 @@ private val sampleConversations = listOf(
     )
 )
 
-@Preview(showBackground = true, name = "Messages — inbox")
+@Preview(showBackground = true, name = "Inbox — interactive (tap a row)")
 @Composable
-private fun MessagesScreenPreview() {
+private fun MessagingInteractivePreview() {
+    // Uses the feature entry point so tapping a conversation actually
+    // navigates to ChatScreen — static screenshot looks like the inbox.
     VintedTheme {
-        MessagesScreen(
-            conversations = sampleConversations,
-            onOpenConversation = {}
-        )
+        MessagingScreen()
     }
 }
 
-@Preview(showBackground = true, name = "Messages — empty")
+@Preview(showBackground = true, name = "Inbox — empty")
 @Composable
 private fun MessagesEmptyPreview() {
     VintedTheme {
@@ -317,10 +433,16 @@ private fun MessagesEmptyPreview() {
     }
 }
 
-@Preview(showBackground = true, name = "Messaging — full flow")
+@Preview(showBackground = true, name = "Inbox — 9+ unread badge")
 @Composable
-private fun MessagingFlowPreview() {
+private fun MessagesOverflowBadgePreview() {
     VintedTheme {
-        MessagingScreen()
+        MessagesScreen(
+            conversations = listOf(
+                sampleConversations[0].copy(id = "p1", unreadCount = 12),
+                sampleConversations[1].copy(id = "p2", unreadCount = 99)
+            ),
+            onOpenConversation = {}
+        )
     }
 }
