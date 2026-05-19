@@ -1,5 +1,12 @@
 package com.example.vinted.ui.addproduct
 
+import android.Manifest
+import android.content.Context
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,13 +28,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
+import coil3.compose.AsyncImage
 import com.example.vinted.ui.theme.*
+import java.io.File
 
 // ─────────────────────────────────────────────────────────────
 // Entry point — manages which step is visible
@@ -131,13 +143,55 @@ private fun PrimaryButton(text: String, enabled: Boolean = true, onClick: () -> 
 // Step 1 — Photos
 // ─────────────────────────────────────────────────────────────
 
+private fun createCameraUri(context: Context): Uri {
+    val dir = File(context.cacheDir, "camera_images").also { it.mkdirs() }
+    val file = File.createTempFile("photo_", ".jpg", dir)
+    return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+}
+
 @Composable
 fun AddProductPhotosStep(
     onBack: () -> Unit = {},
     onContinue: () -> Unit = {}
 ) {
-    var photoSlots by remember { mutableStateOf(List(8) { false }) }
-    val addedCount = photoSlots.count { it }
+    val context = LocalContext.current
+    var photoSlots by remember { mutableStateOf(List<Uri?>(8) { null }) }
+    val addedCount = photoSlots.count { it != null }
+
+    var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
+    var pendingSlotIndex by remember { mutableIntStateOf(0) }
+
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        if (success) {
+            pendingCameraUri?.let { uri ->
+                photoSlots = photoSlots.toMutableList().also { it[pendingSlotIndex] = uri }
+            }
+        }
+    }
+
+    val galleryLauncher = rememberLauncherForActivityResult(PickVisualMedia()) { uri ->
+        uri?.let { photoSlots = photoSlots.toMutableList().also { it[pendingSlotIndex] = uri } }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            val uri = createCameraUri(context)
+            pendingCameraUri = uri
+            cameraLauncher.launch(uri)
+        }
+    }
+
+    fun launchCamera(slotIndex: Int) {
+        pendingSlotIndex = slotIndex
+        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+    }
+
+    fun launchGallery(slotIndex: Int) {
+        pendingSlotIndex = slotIndex
+        galleryLauncher.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly))
+    }
 
     Scaffold(
         containerColor = AppBackground,
@@ -153,7 +207,7 @@ fun AddProductPhotosStep(
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedButton(
-                        onClick = { /* launch camera */ },
+                        onClick = { launchCamera(photoSlots.indexOfFirst { it == null }.takeIf { it >= 0 } ?: 0) },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = BrandPrimary),
@@ -164,7 +218,7 @@ fun AddProductPhotosStep(
                         Text("Camera")
                     }
                     OutlinedButton(
-                        onClick = { /* open gallery */ },
+                        onClick = { launchGallery(photoSlots.indexOfFirst { it == null }.takeIf { it >= 0 } ?: 0) },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = BrandPrimary),
@@ -201,13 +255,13 @@ fun AddProductPhotosStep(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                itemsIndexed(photoSlots) { index, filled ->
+                itemsIndexed(photoSlots) { index, uri ->
                     PhotoSlot(
                         index = index,
-                        filled = filled,
+                        uri = uri,
                         isCover = index == 0,
-                        onAdd = { photoSlots = photoSlots.toMutableList().also { it[index] = true } },
-                        onRemove = { photoSlots = photoSlots.toMutableList().also { it[index] = false } }
+                        onTapEmpty = { launchGallery(index) },
+                        onRemove = { photoSlots = photoSlots.toMutableList().also { it[index] = null } }
                     )
                 }
             }
@@ -218,11 +272,12 @@ fun AddProductPhotosStep(
 @Composable
 private fun PhotoSlot(
     index: Int,
-    filled: Boolean,
+    uri: Uri?,
     isCover: Boolean,
-    onAdd: () -> Unit,
+    onTapEmpty: () -> Unit,
     onRemove: () -> Unit
 ) {
+    val filled = uri != null
     Box(
         modifier = Modifier
             .aspectRatio(4f / 5f)
@@ -233,15 +288,15 @@ private fun PhotoSlot(
                 shape = RoundedCornerShape(10.dp)
             )
             .background(if (filled) BrandSecondary.copy(alpha = 0.25f) else SurfaceWhite)
-            .clickable { if (filled) onRemove() else onAdd() },
+            .clickable { if (!filled) onTapEmpty() },
         contentAlignment = Alignment.Center
     ) {
         if (filled) {
-            Icon(
-                imageVector = Icons.Default.Photo,
-                contentDescription = null,
-                tint = BrandPrimary,
-                modifier = Modifier.size(36.dp)
+            AsyncImage(
+                model = uri,
+                contentDescription = "Photo $index",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.matchParentSize()
             )
             Box(
                 modifier = Modifier
