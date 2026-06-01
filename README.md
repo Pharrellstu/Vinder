@@ -24,7 +24,7 @@ The team uses the following coding conventions (laws) for clarity and overall co
 
 All regular variables use lowerCamelCase.
 
-```
+```kotlin
 val itemPrice = 25.00
 val userName = "Dunno"
 val isLoggedIn = true
@@ -34,7 +34,7 @@ val isLoggedIn = true
 
 All class names use UpperCamelCase.
 
-```
+```kotlin
 class UserProfile {
     // ...
 }
@@ -156,3 +156,4 @@ class UserProfileTest {
 ### Code Quality
 
 All variable and function names must be named appropriately so it is clear what kind of service or value they provide.
+
