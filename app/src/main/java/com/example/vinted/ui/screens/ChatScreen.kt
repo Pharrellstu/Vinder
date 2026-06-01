@@ -30,10 +30,12 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,6 +47,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
+import com.example.vinted.data.ChatRepository
+import com.example.vinted.data.SupabaseConfig
 import com.example.vinted.ui.components.InitialAvatar
 import com.example.vinted.ui.models.ChatMessage
 import com.example.vinted.ui.models.Conversation
@@ -66,6 +71,16 @@ fun ChatScreen(
         mutableStateListOf<ChatMessage>().apply { addAll(conversation.messages) }
     }
     var draft by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+
+    // Load this dialogue's messages from Supabase; keep the sample data on failure.
+    LaunchedEffect(conversation.dialogueId) {
+        val dbMessages = ChatRepository.getMessages(conversation.dialogueId)
+        if (dbMessages.isNotEmpty()) {
+            messages.clear()
+            messages.addAll(dbMessages)
+        }
+    }
 
     Scaffold(
         containerColor = Grey97,
@@ -115,6 +130,14 @@ fun ChatScreen(
                             ),
                         )
                         draft = ""
+                        // Persist to Supabase (logs the payload + DB response).
+                        scope.launch {
+                            ChatRepository.sendMessage(
+                                dialogueId = conversation.dialogueId,
+                                senderId = SupabaseConfig.CURRENT_ACCOUNT_ID,
+                                text = text,
+                            )
+                        }
                     }
                 },
             )

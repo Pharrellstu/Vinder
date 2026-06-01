@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 
 data class Conversation(
     val id: String,
+    val dialogueId: Int,
     val handle: String,
     val initial: String,
     val avatarColor: Color,
@@ -16,6 +17,7 @@ data class Conversation(
 val sampleConversations = listOf(
     Conversation(
         id = "c1",
+        dialogueId = 1,
         handle = "lena.k",
         initial = "L",
         avatarColor = Color(0xFF6C6FB5),
@@ -31,6 +33,7 @@ val sampleConversations = listOf(
     ),
     Conversation(
         id = "c2",
+        dialogueId = 2,
         handle = "thrifted_by_anna",
         initial = "A",
         avatarColor = Color(0xFFB08A4F),
@@ -42,6 +45,7 @@ val sampleConversations = listOf(
     ),
     Conversation(
         id = "c3",
+        dialogueId = 3,
         handle = "noah.dev",
         initial = "N",
         avatarColor = Color(0xFF4E8098),
@@ -54,6 +58,7 @@ val sampleConversations = listOf(
     ),
     Conversation(
         id = "c4",
+        dialogueId = 4,
         handle = "closet_clear",
         initial = "C",
         avatarColor = Color(0xFF7B9E6E),
@@ -65,6 +70,7 @@ val sampleConversations = listOf(
     ),
     Conversation(
         id = "c5",
+        dialogueId = 5,
         handle = "vintage_jules",
         initial = "J",
         avatarColor = Color(0xFFB08A4F),
