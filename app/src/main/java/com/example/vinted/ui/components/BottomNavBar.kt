@@ -63,19 +63,22 @@ fun BottomNavBar(
                 NavButton(Icons.Outlined.Person, "Profile", selectedIndex == 4) { onItemSelected(4) }
             }
         }
-        SellFab(modifier = Modifier.align(Alignment.TopCenter).offset(y = (-16).dp))
+        SellFab(
+            onClick = { onItemSelected(2) },
+            modifier = Modifier.align(Alignment.TopCenter).offset(y = (-16).dp),
+        )
     }
 }
 
 @Composable
-private fun SellFab(modifier: Modifier = Modifier) {
+private fun SellFab(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .size(50.dp)
             .shadow(elevation = 8.dp, shape = CircleShape, spotColor = VinderAzure.copy(alpha = 0.4f))
             .clip(CircleShape)
             .background(VinderAzure)
-            .clickable {},
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(

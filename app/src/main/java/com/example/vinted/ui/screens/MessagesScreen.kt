@@ -53,6 +53,7 @@ import com.example.vinted.ui.theme.VintedTheme
 fun MessagesScreen(
     initialConversations: List<Conversation> = sampleConversations,
     onBack: () -> Unit = {},
+    onTabSelected: (Int) -> Unit = {},
 ) {
     val conversations = remember { initialConversations.toMutableStateList() }
     var openConversationId by remember { mutableStateOf<String?>(null) }
@@ -88,6 +89,7 @@ fun MessagesScreen(
         bottomBar = {
             BottomNavBar(
                 selectedIndex = 3,
+                onItemSelected = onTabSelected,
                 inboxUnreadCount = conversations.sumOf { it.unreadCount },
             )
         },

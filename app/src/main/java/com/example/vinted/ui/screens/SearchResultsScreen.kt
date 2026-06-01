@@ -35,7 +35,7 @@ private val sampleSearchResults = listOf(
 )
 
 @Composable
-fun SearchResultsScreen() {
+fun SearchResultsScreen(onTabSelected: (Int) -> Unit = {}) {
     var filters by remember {
         mutableStateOf(
             SearchFilters(
@@ -59,7 +59,7 @@ fun SearchResultsScreen() {
                 )
             }
         },
-        bottomBar = { BottomNavBar(selectedIndex = 1) },
+        bottomBar = { BottomNavBar(selectedIndex = 1, onItemSelected = onTabSelected) },
         containerColor = screenBgColor,
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {

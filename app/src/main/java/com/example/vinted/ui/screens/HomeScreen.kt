@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -38,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.vinted.ui.components.BottomNavBar
 import com.example.vinted.ui.components.CategoryChip
 import com.example.vinted.ui.components.GridProductCard
 import com.example.vinted.ui.components.HeroBanner
@@ -70,29 +72,34 @@ private val sampleGridProducts = listOf(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen() {
+fun HomeScreen(onTabSelected: (Int) -> Unit = {}) {
     var selectedCategory by remember { mutableStateOf("All") }
 
-    Column(modifier = Modifier.fillMaxSize().background(Color(0xFFF5F6F8))) {
-        VinderTopBar()
-        CategoryFilterRow(
-            categories = categories,
-            selectedCategory = selectedCategory,
-            onCategorySelected = { selectedCategory = it },
-        )
-        LazyColumn {
-            item { Spacer(modifier = Modifier.height(16.dp)) }
-            item { HeroBanner(onSellClick = {}) }
-            item { Spacer(modifier = Modifier.height(20.dp)) }
-            item { SectionHeader(title = "On sale today", onSeeAll = {}) }
-            item { SaleProductsRow(products = sampleSaleProducts) }
-            item { Spacer(modifier = Modifier.height(20.dp)) }
-            item { LatestFindsHeader(itemCount = 24) }
-            item { Spacer(modifier = Modifier.height(12.dp)) }
-            items(sampleGridProducts.chunked(2)) { row ->
-                ProductGridRow(products = row)
+    Scaffold(
+        containerColor = Color(0xFFF5F6F8),
+        bottomBar = { BottomNavBar(selectedIndex = 0, onItemSelected = onTabSelected) },
+    ) { padding ->
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            VinderTopBar()
+            CategoryFilterRow(
+                categories = categories,
+                selectedCategory = selectedCategory,
+                onCategorySelected = { selectedCategory = it },
+            )
+            LazyColumn {
+                item { Spacer(modifier = Modifier.height(16.dp)) }
+                item { HeroBanner(onSellClick = {}) }
+                item { Spacer(modifier = Modifier.height(20.dp)) }
+                item { SectionHeader(title = "On sale today", onSeeAll = {}) }
+                item { SaleProductsRow(products = sampleSaleProducts) }
+                item { Spacer(modifier = Modifier.height(20.dp)) }
+                item { LatestFindsHeader(itemCount = 24) }
+                item { Spacer(modifier = Modifier.height(12.dp)) }
+                items(sampleGridProducts.chunked(2)) { row ->
+                    ProductGridRow(products = row)
+                }
+                item { Spacer(modifier = Modifier.height(24.dp)) }
             }
-            item { Spacer(modifier = Modifier.height(24.dp)) }
         }
     }
 }
