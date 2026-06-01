@@ -1,6 +1,8 @@
 package com.example.vinted.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -25,8 +28,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -40,20 +45,23 @@ import com.example.vinted.ui.models.sampleConversations
 import com.example.vinted.ui.theme.Grey11
 import com.example.vinted.ui.theme.Grey57
 import com.example.vinted.ui.theme.Grey91
+import com.example.vinted.ui.theme.VinderAzure
 import com.example.vinted.ui.theme.VintedTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MessagesScreen(
-    conversations: List<Conversation> = sampleConversations,
+    initialConversations: List<Conversation> = sampleConversations,
     onBack: () -> Unit = {},
 ) {
-    var openConversation by remember { mutableStateOf<Conversation?>(null) }
+    val conversations = remember { initialConversations.toMutableStateList() }
+    var openConversationId by remember { mutableStateOf<String?>(null) }
 
-    openConversation?.let { conversation ->
+    openConversationId?.let { id ->
+        val conversation = conversations.first { it.id == id }
         ChatScreen(
             conversation = conversation,
-            onBack = { openConversation = null },
+            onBack = { openConversationId = null },
         )
         return
     }
@@ -77,7 +85,12 @@ fun MessagesScreen(
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.White),
             )
         },
-        bottomBar = { BottomNavBar(selectedIndex = 3) },
+        bottomBar = {
+            BottomNavBar(
+                selectedIndex = 3,
+                inboxUnreadCount = conversations.sumOf { it.unreadCount },
+            )
+        },
     ) { padding ->
         LazyColumn(
             modifier = Modifier
@@ -87,7 +100,13 @@ fun MessagesScreen(
             items(conversations, key = { it.id }) { conversation ->
                 ConversationRow(
                     conversation = conversation,
-                    onClick = { openConversation = conversation },
+                    onClick = {
+                        val index = conversations.indexOfFirst { it.id == conversation.id }
+                        if (conversation.unreadCount > 0) {
+                            conversations[index] = conversation.copy(unreadCount = 0)
+                        }
+                        openConversationId = conversation.id
+                    },
                 )
                 HorizontalDivider(color = Grey91, modifier = Modifier.padding(start = 72.dp))
             }
@@ -130,6 +149,28 @@ private fun ConversationRow(
                 lineHeight = 18.sp,
             )
         }
+        if (conversation.unreadCount > 0) {
+            Spacer(modifier = Modifier.size(8.dp))
+            UnreadBadge(conversation.unreadCount)
+        }
+    }
+}
+
+@Composable
+private fun UnreadBadge(count: Int) {
+    Box(
+        modifier = Modifier
+            .size(20.dp)
+            .clip(CircleShape)
+            .background(VinderAzure),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = if (count > 9) "9+" else count.toString(),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+        )
     }
 }
 

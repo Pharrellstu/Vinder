@@ -40,6 +40,7 @@ fun BottomNavBar(
     selectedIndex: Int,
     onItemSelected: (Int) -> Unit = {},
     modifier: Modifier = Modifier,
+    inboxUnreadCount: Int = 0,
 ) {
     Box(modifier = modifier.fillMaxWidth()) {
         Column(
@@ -58,7 +59,7 @@ fun BottomNavBar(
                 NavButton(Icons.Outlined.Home, "Home", selectedIndex == 0) { onItemSelected(0) }
                 NavButton(Icons.Outlined.Search, "Search", selectedIndex == 1) { onItemSelected(1) }
                 Spacer(modifier = Modifier.size(50.dp))
-                NavButton(Icons.Outlined.ChatBubbleOutline, "Inbox", selectedIndex == 3) { onItemSelected(3) }
+                NavButton(Icons.Outlined.ChatBubbleOutline, "Inbox", selectedIndex == 3, badgeCount = inboxUnreadCount) { onItemSelected(3) }
                 NavButton(Icons.Outlined.Person, "Profile", selectedIndex == 4) { onItemSelected(4) }
             }
         }
@@ -91,6 +92,7 @@ private fun NavButton(
     icon: ImageVector,
     label: String,
     selected: Boolean,
+    badgeCount: Int = 0,
     onClick: () -> Unit,
 ) {
     val tint = if (selected) VinderAzure else Grey57
@@ -101,7 +103,27 @@ private fun NavButton(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Icon(imageVector = icon, contentDescription = label, tint = tint, modifier = Modifier.size(22.dp))
+        Box {
+            Icon(imageVector = icon, contentDescription = label, tint = tint, modifier = Modifier.size(22.dp))
+            if (badgeCount > 0) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = 6.dp, y = (-4).dp)
+                        .size(16.dp)
+                        .clip(CircleShape)
+                        .background(VinderAzure),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = if (badgeCount > 9) "9+" else badgeCount.toString(),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                    )
+                }
+            }
+        }
         Text(
             text = label,
             fontSize = 10.sp,

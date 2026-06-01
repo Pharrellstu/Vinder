@@ -9,6 +9,7 @@ data class Conversation(
     val avatarColor: Color,
     val lastMessage: String,
     val timeLabel: String,
+    val unreadCount: Int = 0,
     val messages: List<ChatMessage> = emptyList(),
 )
 
@@ -20,6 +21,7 @@ val sampleConversations = listOf(
         avatarColor = Color(0xFF6C6FB5),
         lastMessage = "Yes, still available! When would you like to pick up?",
         timeLabel = "2m",
+        unreadCount = 2,
         messages = listOf(
             ChatMessage("m1", "Hi! Is this still available?", isFromMe = true, time = "14:12"),
             ChatMessage("m2", "Yes, it is!", isFromMe = false, time = "14:12"),
@@ -45,6 +47,7 @@ val sampleConversations = listOf(
         avatarColor = Color(0xFF4E8098),
         lastMessage = "Would you take €100 for it?",
         timeLabel = "3h",
+        unreadCount = 1,
         messages = listOf(
             ChatMessage("m1", "Would you take €100 for it?", isFromMe = false, time = "11:40"),
         ),
