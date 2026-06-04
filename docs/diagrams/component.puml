@@ -1,0 +1,114 @@
+@startuml Vinder-Component
+' ─────────────────────────────────────────────────────────────
+' Vinder — Component Diagram (target architecture, Marktplaats-style)
+' Layered: UI → state → repository → data sources → backend.
+' Cross-cutting deps (theme, state) are drawn once at the UI-layer
+' level to keep the diagram readable.
+' ─────────────────────────────────────────────────────────────
+
+skinparam shadowing false
+skinparam componentStyle uml2
+skinparam component {
+  BackgroundColor #F5F6F8
+  BorderColor #4E8098
+}
+skinparam packageBorderColor  #8E8E93
+skinparam databaseBorderColor #4E8098
+
+actor "User" as user
+
+package "Android App" {
+
+  component "App Shell &\nNavigation" as Shell
+
+  package "Presentation (Compose UI)" as UI {
+    component "Home / Browse"        as CmpHome
+    component "Search"               as CmpSearch
+    component "Item Detail"          as CmpItem
+    component "Sell / Add Product"   as CmpSell
+    component "Messaging\n(Inbox + Chat)" as CmpMsg
+    component "Profile & Settings"   as CmpProfile
+    component "Auth\n(Login / Register)" as CmpAuth
+  }
+
+  component "Design System\n(theme, shared UI)" as Theme
+  component "ViewModels\n(UI state)"            as VM
+
+  component "Repositories\n(domain logic)" as Repo
+  interface "Repository API"               as IRepo
+
+  component "Remote API Client\n(REST + WebSocket)" as Api
+  component "Local Store\n(Room / DataStore)"       as Local
+  component "Image Loader (Coil)"                   as Coil
+}
+
+' ---------- device / platform (provided by the Android OS, not our code) ----------
+package "Device / Android OS" {
+  component "Camera & Gallery" as Cam
+}
+
+package "Backend" {
+  component "API Gateway"                 as Gw
+  component "Auth Service"                as SvcAuth
+  component "Catalog & Search Service"   as SvcCat
+  component "Messaging Service\n(real-time)" as SvcMsg
+  component "Orders & Payments Service"  as SvcOrder
+  component "Notification Service"       as SvcNotif
+  database  "Database"                   as DB
+  component "Media Storage\n(object store)" as Blob
+}
+
+package "External Services" {
+  component "Payment Gateway" as Pay
+  component "Push (FCM)"      as FCM
+  component "Maps / Location" as Maps
+}
+
+' ---------- client wiring ----------
+user --> Shell
+
+' the navigation shell hosts every screen
+Shell --> CmpHome
+Shell --> CmpSearch
+Shell --> CmpItem
+Shell --> CmpSell
+Shell --> CmpMsg
+Shell --> CmpProfile
+Shell --> CmpAuth
+
+' cross-cutting concerns shared by all screens — drawn once at the layer level
+UI ..> Theme
+UI ..> VM
+
+' specific external/device deps from the screens that use them
+CmpHome ..> Coil
+CmpItem ..> Coil
+CmpHome ..> Maps
+CmpSell --> Cam
+
+' state → repository → data sources
+VM ..> IRepo
+Repo - IRepo
+Repo --> Api
+Repo --> Local
+
+' ---------- client ↔ backend ----------
+Api --> Gw
+Gw --> SvcAuth
+Gw --> SvcCat
+Gw --> SvcMsg
+Gw --> SvcOrder
+
+' ---------- backend internals ----------
+SvcAuth  --> DB
+SvcCat   --> DB
+SvcMsg   --> DB
+SvcOrder --> DB
+SvcCat   --> Blob
+SvcMsg   --> SvcNotif
+
+' ---------- backend ↔ external ----------
+SvcOrder --> Pay
+SvcNotif --> FCM
+
+@enduml
