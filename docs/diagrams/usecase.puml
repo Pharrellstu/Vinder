@@ -20,10 +20,12 @@ actor "Visitor" as Visitor
 actor "User"    as User
 User --|> Visitor
 
-' ---------- System / secondary actors ----------
+' ---------- System / secondary actors (external systems from the component diagram) ----------
 actor "Payment\nGateway"            as Pay
 actor "Push Notification\nService"  as Push
 actor "Device Camera\n& Gallery"    as Cam
+actor "Maps /\nLocation"            as Maps
+actor "Database"                    as DB
 
 ' ---------- System boundary ----------
 rectangle "Vinder App" {
@@ -102,5 +104,13 @@ UC_Unread ..> UC_Inbox    : <<extend>>
 UC_Checkout --> Pay
 UC_Photo    --> Cam
 UC_Chat     --> Push
+UC_Feed     --> Maps
+UC_Item     --> Maps
+
+' Database persists the core entities: accounts, listings, orders, conversations
+UC_Reg      --> DB
+UC_Create   --> DB
+UC_Checkout --> DB
+UC_Chat     --> DB
 
 @enduml
