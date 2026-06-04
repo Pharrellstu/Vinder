@@ -2,6 +2,7 @@ package com.example.vinted.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -33,6 +34,7 @@ private val badgeShape = RoundedCornerShape(4.dp)
 @Composable
 fun SaleProductCard(
     product: Product,
+    onClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -40,7 +42,8 @@ fun SaleProductCard(
             .width(130.dp)
             .clip(cardShape)
             .background(Color.White)
-            .border(1.dp, Grey91, cardShape),
+            .border(1.dp, Grey91, cardShape)
+            .clickable(onClick = onClick),
     ) {
         SaleCardImage(discountPercent = product.discountPercent)
         SaleCardInfo(product = product)
