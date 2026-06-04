@@ -1,3 +1,4 @@
+
 package com.example.vinted.ui.screens
 
 import androidx.compose.foundation.background
@@ -70,7 +71,7 @@ private val sampleGridProducts = listOf(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen() {
+fun HomeScreen(onProductClick: (Product) -> Unit = {}) {
     var selectedCategory by remember { mutableStateOf("All") }
 
     Column(modifier = Modifier.fillMaxSize().background(Color(0xFFF5F6F8))) {
@@ -85,12 +86,12 @@ fun HomeScreen() {
             item { HeroBanner(onSellClick = {}) }
             item { Spacer(modifier = Modifier.height(20.dp)) }
             item { SectionHeader(title = "On sale today", onSeeAll = {}) }
-            item { SaleProductsRow(products = sampleSaleProducts) }
+            item { SaleProductsRow(products = sampleSaleProducts, onProductClick = onProductClick) }
             item { Spacer(modifier = Modifier.height(20.dp)) }
             item { LatestFindsHeader(itemCount = 24) }
             item { Spacer(modifier = Modifier.height(12.dp)) }
             items(sampleGridProducts.chunked(2)) { row ->
-                ProductGridRow(products = row)
+                ProductGridRow(products = row, onProductClick = onProductClick)
             }
             item { Spacer(modifier = Modifier.height(24.dp)) }
         }
@@ -196,19 +197,19 @@ private fun LatestFindsHeader(itemCount: Int) {
 }
 
 @Composable
-private fun SaleProductsRow(products: List<Product>) {
+private fun SaleProductsRow(products: List<Product>, onProductClick: (Product) -> Unit) {
     LazyRow(
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         items(products) { product ->
-            SaleProductCard(product = product)
+            SaleProductCard(product = product, onClick = { onProductClick(product) })
         }
     }
 }
 
 @Composable
-private fun ProductGridRow(products: List<Product>) {
+private fun ProductGridRow(products: List<Product>, onProductClick: (Product) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -218,6 +219,7 @@ private fun ProductGridRow(products: List<Product>) {
         products.forEach { product ->
             GridProductCard(
                 product = product,
+                onClick = { onProductClick(product) },
                 modifier = Modifier.weight(1f),
             )
         }
