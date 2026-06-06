@@ -79,7 +79,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
+import coil3.compose.AsyncImage
 import com.example.vinted.ui.theme.Grey11
 import com.example.vinted.ui.theme.Grey57
 import com.example.vinted.ui.theme.Grey91
