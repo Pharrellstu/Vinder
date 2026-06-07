@@ -1,0 +1,21 @@
+## local.properties.example
+## Copy this file to local.properties and fill in your values.
+## local.properties is git-ignored and must never be committed.
+
+# Android SDK location (set automatically by Android Studio)
+sdk.dir=/path/to/Android/Sdk
+
+# ─── Supabase connection ──────────────────────────────────────────────────────
+#
+# Local development (Supabase self-hosted):
+#   - Physical device  → use your machine's LAN IP, e.g. http://192.168.1.x:8000
+#   - Android emulator → use http://10.0.2.2:8000
+#                        (10.0.2.2 is the emulator's alias for the host loopback)
+#   - Unit / JVM tests → http://localhost:8000
+#
+# Production (Supabase cloud):
+#   - supabase.url  = https://<project-ref>.supabase.co
+#   - supabase.anon.key = <your anon/public key from Project Settings → API>
+#
+supabase.url=http://10.0.2.2:8000   # emulator → always use 10.0.2.2, never localhost
+supabase.anon.key=your-anon-key-here

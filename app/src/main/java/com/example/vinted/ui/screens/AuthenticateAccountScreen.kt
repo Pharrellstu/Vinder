@@ -16,8 +16,12 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -26,13 +30,27 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.vinted.auth.AuthRepository
+import com.example.vinted.auth.AuthUiState
+import com.example.vinted.auth.AuthViewModel
 import com.example.vinted.ui.theme.*
 
-@Preview
 @Composable
-fun AuthenticateAccountScreen() {
+fun AuthenticateAccountScreen(
+    viewModel: AuthViewModel = viewModel(),
+    email: String = "",
+    onVerifySuccess: () -> Unit = {}
+) {
 
     val codeFieldState = rememberTextFieldState("")
+    val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(uiState) {
+        if (uiState is AuthUiState.Success) {
+            onVerifySuccess()
+        }
+    }
 
     Box(
         modifier = Modifier.fillMaxSize()
@@ -106,8 +124,9 @@ fun AuthenticateAccountScreen() {
 
             Button(
                 onClick = {
-                    // Verification handled later using codeFieldState.text
+                    viewModel.verifyOtp(email, codeFieldState.text.toString())
                 },
+                enabled = uiState !is AuthUiState.Loading,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = headingColor
                 ),
@@ -118,6 +137,24 @@ fun AuthenticateAccountScreen() {
             ) {
                 Text("Proceed")
             }
+
+            if (uiState is AuthUiState.Loading) {
+                CircularProgressIndicator(
+                    color = headingColor,
+                    modifier = Modifier
+                        .padding(top = 16.dp)
+                        .size(24.dp)
+                )
+            }
+
+            if (uiState is AuthUiState.Error) {
+                Text(
+                    text = (uiState as AuthUiState.Error).message,
+                    color = Color.Red,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(top = 16.dp)
+                )
+            }
         }
     }
 }
@@ -125,5 +162,5 @@ fun AuthenticateAccountScreen() {
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun AuthenticateAccountScreenPreview() {
-    AuthenticateAccountScreen()
+    AuthenticateAccountScreen(viewModel = AuthViewModel(AuthRepository()))
 }

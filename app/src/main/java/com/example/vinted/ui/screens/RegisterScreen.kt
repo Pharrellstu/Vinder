@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,8 +19,12 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,6 +35,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.vinted.auth.AuthRepository
+import com.example.vinted.auth.AuthUiState
+import com.example.vinted.auth.AuthViewModel
 import com.example.vinted.ui.theme.boxDivColor
 import com.example.vinted.ui.theme.grayColor
 import com.example.vinted.ui.theme.headingColor
@@ -42,11 +51,21 @@ private const val PASSWORD_MASK = '•'
 private val CARD_BORDER_COLOR = Color.Black.copy(alpha = 0.1f)
 
 @Composable
-fun RegisterScreen() {
+fun RegisterScreen(
+    viewModel: AuthViewModel = viewModel(),
+    onRegisterSuccess: () -> Unit = {}
+) {
     val usernameFieldState = rememberTextFieldState("")
     val emailFieldState = rememberTextFieldState("")
     val passwordFieldState = rememberTextFieldState("")
     val confirmPasswordFieldState = rememberTextFieldState("")
+    val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(uiState) {
+        if (uiState is AuthUiState.Success) {
+            onRegisterSuccess()
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -115,7 +134,14 @@ fun RegisterScreen() {
             )
 
             Button(
-                onClick = { /* registration logic handled by a ViewModel later */ },
+                onClick = {
+                    viewModel.register(
+                        emailFieldState.text.toString(),
+                        passwordFieldState.text.toString(),
+                        confirmPasswordFieldState.text.toString()
+                    )
+                },
+                enabled = uiState !is AuthUiState.Loading,
                 colors = ButtonDefaults.buttonColors(containerColor = headingColor),
                 modifier = Modifier
                     .padding(top = 28.dp)
@@ -123,6 +149,24 @@ fun RegisterScreen() {
                     .height(38.dp)
             ) {
                 Text("Register")
+            }
+
+            if (uiState is AuthUiState.Loading) {
+                CircularProgressIndicator(
+                    color = headingColor,
+                    modifier = Modifier
+                        .padding(top = 16.dp)
+                        .size(24.dp)
+                )
+            }
+
+            if (uiState is AuthUiState.Error) {
+                Text(
+                    text = (uiState as AuthUiState.Error).message,
+                    color = Color.Red,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(top = 16.dp)
+                )
             }
 
             Row(modifier = Modifier.padding(top = 16.dp)) {
@@ -233,5 +277,5 @@ private fun ratePasswordStrength(password: String): PasswordStrength {
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun RegisterScreenPreview() {
-    RegisterScreen()
+    RegisterScreen(viewModel = AuthViewModel(AuthRepository()))
 }

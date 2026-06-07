@@ -14,20 +14,24 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicSecureTextField
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.input.*
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -36,19 +40,31 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.vinted.ui.models.LoginUiState
+import com.example.vinted.ui.models.LoginViewModel
 import com.example.vinted.ui.theme.boxDivColor
 import com.example.vinted.ui.theme.headingColor
 import com.example.vinted.ui.theme.inputColor
 import com.example.vinted.ui.theme.instrumentSerifNormal
 import com.example.vinted.ui.theme.roundedInputShape
 
-@Preview
 @Composable
-fun LoginScreen() {
+fun LoginScreen(
+    viewModel: LoginViewModel = viewModel(),
+    onLoginSuccess: () -> Unit = {}
+) {
 
     val textFieldState = rememberTextFieldState("")
     val passwordFieldState = rememberTextFieldState("")
     var checked by remember { mutableStateOf(true) }
+    val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(uiState) {
+        if (uiState is LoginUiState.Success) {
+            onLoginSuccess()
+        }
+    }
 
     Box(
         modifier = Modifier.fillMaxSize()
@@ -57,7 +73,7 @@ fun LoginScreen() {
     ) {
         Column(
             modifier = Modifier
-                .size(340.dp, 400.dp)
+                .size(340.dp, 430.dp)
                 .background(
                     color = Color(boxDivColor.value),
                     shape = RoundedCornerShape(16.dp),
@@ -113,8 +129,9 @@ fun LoginScreen() {
                 }
             )
 
-            BasicTextField(
+            BasicSecureTextField(
                 state = passwordFieldState,
+                textObfuscationMode = TextObfuscationMode.Hidden,
                 modifier = Modifier
                     .padding(
                         top = 26.dp
@@ -179,11 +196,14 @@ fun LoginScreen() {
 
             Button(
                 onClick = {
-                    // Handle login logic here using:
-                    // textFieldState.text and passwordFieldState.text
+                    viewModel.login(
+                        textFieldState.text.toString(),
+                        passwordFieldState.text.toString()
+                    )
                 },
+                enabled = uiState !is LoginUiState.Loading,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = headingColor // Or Color.Transparent to completely remove it
+                    containerColor = headingColor
                 ),
                 modifier = Modifier
                     .padding(top = 32.dp)
@@ -192,6 +212,27 @@ fun LoginScreen() {
                     .align(Alignment.CenterHorizontally)
             ) {
                 Text("Log In")
+            }
+
+            if (uiState is LoginUiState.Loading) {
+                CircularProgressIndicator(
+                    color = headingColor,
+                    modifier = Modifier
+                        .padding(top = 16.dp)
+                        .size(24.dp)
+                        .align(Alignment.CenterHorizontally)
+                )
+            }
+
+            if (uiState is LoginUiState.Error) {
+                Text(
+                    text = (uiState as LoginUiState.Error).message,
+                    color = Color.Red,
+                    fontSize = 12.sp,
+                    modifier = Modifier
+                        .padding(top = 16.dp)
+                        .align(Alignment.CenterHorizontally)
+                )
             }
         }
     }
