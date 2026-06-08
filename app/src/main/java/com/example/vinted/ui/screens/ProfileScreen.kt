@@ -74,11 +74,11 @@ private val sampleListings = listOf(
 private val profileTabs = listOf("Listings", "Sold", "Reviews")
 
 @Composable
-fun ProfileScreen() {
+fun ProfileScreen(onTabSelected: (Int) -> Unit = {}) {
     var selectedTab by remember { mutableStateOf(0) }
 
     Scaffold(
-        bottomBar = { BottomNavBar(selectedIndex = 4) },
+        bottomBar = { BottomNavBar(selectedIndex = 4, onItemSelected = onTabSelected) },
         containerColor = Grey97,
     ) { padding ->
         LazyColumn(
