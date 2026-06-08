@@ -3,6 +3,7 @@ package com.example.vinted.ui.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -53,7 +54,8 @@ private val CARD_BORDER_COLOR = Color.Black.copy(alpha = 0.1f)
 @Composable
 fun RegisterScreen(
     viewModel: AuthViewModel = viewModel(),
-    onRegisterSuccess: () -> Unit = {}
+    onRegisterSuccess: () -> Unit = {},
+    onNavigateToLogin: () -> Unit = {}
 ) {
     val usernameFieldState = rememberTextFieldState("")
     val emailFieldState = rememberTextFieldState("")
@@ -178,7 +180,8 @@ fun RegisterScreen(
                 Text(
                     text = "Log In",
                     fontSize = 12.sp,
-                    color = headingColor
+                    color = headingColor,
+                    modifier = Modifier.clickable { onNavigateToLogin() }
                 )
             }
         }

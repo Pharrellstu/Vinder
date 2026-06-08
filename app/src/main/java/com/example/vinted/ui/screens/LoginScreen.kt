@@ -3,6 +3,7 @@ package com.example.vinted.ui.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -52,7 +53,8 @@ import com.example.vinted.ui.theme.roundedInputShape
 @Composable
 fun LoginScreen(
     viewModel: LoginViewModel = viewModel(),
-    onLoginSuccess: () -> Unit = {}
+    onLoginSuccess: () -> Unit = {},
+    onNavigateToRegister: () -> Unit = {}
 ) {
 
     val textFieldState = rememberTextFieldState("")
@@ -234,6 +236,16 @@ fun LoginScreen(
                         .align(Alignment.CenterHorizontally)
                 )
             }
+
+            Text(
+                text = "Register",
+                fontSize = 12.sp,
+                color = headingColor,
+                modifier = Modifier
+                    .padding(top = 16.dp)
+                    .align(Alignment.CenterHorizontally)
+                    .clickable { onNavigateToRegister() }
+            )
         }
     }
 }
