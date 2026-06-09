@@ -1,0 +1,70 @@
+package com.example.vinted.ui.components
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.vinted.ui.models.Product
+import com.example.vinted.ui.theme.Grey11
+import com.example.vinted.ui.theme.Grey36
+import com.example.vinted.ui.theme.Grey57
+import com.example.vinted.ui.theme.Grey91
+
+private val cardShape = RoundedCornerShape(10.dp)
+
+@Composable
+fun SearchResultCard(product: Product, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .clip(cardShape)
+            .background(Color.White)
+            .border(1.dp, Grey91, cardShape),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(128.dp)
+                .background(Grey91),
+        )
+        Column(modifier = Modifier.padding(horizontal = 7.dp, vertical = 8.dp)) {
+            Text(
+                text = "€%.0f".format(product.price),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = Grey11,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = product.name,
+                fontSize = 11.sp,
+                color = Grey36,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (product.brand != null || product.size != null) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = listOfNotNull(product.size, product.brand).joinToString(" · "),
+                    fontSize = 10.sp,
+                    color = Grey57,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}

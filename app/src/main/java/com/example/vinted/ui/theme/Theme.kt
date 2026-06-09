@@ -7,7 +7,6 @@ import androidx.compose.ui.graphics.Color
 
 private val VinderColorScheme = lightColorScheme(
     primary = VinderAzure,
-    onPrimary = Color.White,
     secondary = VinderAmber,
     onSecondary = Grey11,
     background = Grey97,
@@ -15,6 +14,14 @@ private val VinderColorScheme = lightColorScheme(
     surface = Color.White,
     onSurface = Grey11,
     outline = Grey91,
+)
+
+private val LightColorScheme = lightColorScheme(
+    background = Color(0xFFFFFBFE),
+    surface = Color(0xFFFFFBFE),
+    onPrimary = Color.White,
+    secondary = VinderAmber,
+    onSecondary = Grey11,
 )
 
 @Composable

@@ -1,0 +1,7 @@
+<resources>
+
+    <style name="ThemeOverlay.Vinted.FullscreenContainer" parent="">
+        <item name="fullscreenBackgroundColor">@color/boxDivColor</item>
+        <item name="fullscreenTextColor">@color/white</item>
+    </style>
+</resources>

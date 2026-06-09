@@ -5,14 +5,22 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.example.vinted.ui.models.Product
 import com.example.vinted.ui.models.Seller
+import com.example.vinted.ui.screens.AddProductScreen
 import com.example.vinted.ui.screens.HomeScreen
 import com.example.vinted.ui.screens.ItemDetailScreen
+import com.example.vinted.ui.screens.LoginScreen
+import com.example.vinted.ui.screens.MessagesScreen
+import com.example.vinted.ui.screens.ProfileScreen
+import com.example.vinted.ui.screens.RegisterScreen
+import com.example.vinted.ui.screens.SearchResultsScreen
 import com.example.vinted.ui.theme.VintedTheme
 import kotlin.math.abs
 
@@ -22,24 +30,71 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             VintedTheme {
-                // Hand-rolled navigation (no nav library yet): Home <-> Item detail,
-                // same state-driven pattern as the AddProductScreen wizard.
-                var openProduct by remember { mutableStateOf<Product?>(null) }
-                val selected = openProduct
-
-                if (selected == null) {
-                    HomeScreen(onProductClick = { openProduct = it })
-                } else {
-                    BackHandler { openProduct = null }
-                    ItemDetailScreen(
-                        product = selected,
-                        seller = sellerFor(selected),
-                        description = descriptionFor(selected),
-                        onBack = { openProduct = null },
-                    )
-                }
+                VinderApp()
             }
         }
+    }
+}
+
+private enum class AuthScreen {
+    LOGIN,
+    REGISTER,
+    HOME
+}
+
+@Composable
+fun VinderApp() {
+    var authScreen by rememberSaveable { mutableStateOf(AuthScreen.LOGIN) }
+
+    when (authScreen) {
+        AuthScreen.LOGIN -> LoginScreen(
+            onLoginSuccess = { authScreen = AuthScreen.HOME },
+            onNavigateToRegister = { authScreen = AuthScreen.REGISTER }
+        )
+
+        AuthScreen.REGISTER -> RegisterScreen(
+            onRegisterSuccess = { authScreen = AuthScreen.LOGIN },
+            onNavigateToLogin = { authScreen = AuthScreen.LOGIN }
+        )
+
+        AuthScreen.HOME -> MainTabs()
+    }
+}
+
+@Composable
+private fun MainTabs() {
+    var selectedTab by rememberSaveable { mutableStateOf(0) }
+    var showAddProduct by rememberSaveable { mutableStateOf(false) }
+    var openProduct by remember { mutableStateOf<Product?>(null) }
+
+    // The "+" FAB (index 2) opens the Add Product flow as a modal over the current tab.
+    val onTabSelected: (Int) -> Unit = { index ->
+        if (index == 2) showAddProduct = true else selectedTab = index
+    }
+
+    if (showAddProduct) {
+        AddProductScreen(onBack = { showAddProduct = false })
+        return
+    }
+
+    // Tapping a product on the Home feed opens the Item Detail page over the tabs.
+    val product = openProduct
+    if (product != null) {
+        BackHandler { openProduct = null }
+        ItemDetailScreen(
+            product = product,
+            seller = sellerFor(product),
+            description = descriptionFor(product),
+            onBack = { openProduct = null },
+        )
+        return
+    }
+
+    when (selectedTab) {
+        1 -> SearchResultsScreen(onTabSelected = onTabSelected)
+        3 -> MessagesScreen(onTabSelected = onTabSelected)
+        4 -> ProfileScreen(onTabSelected = onTabSelected)
+        else -> HomeScreen(onTabSelected = onTabSelected, onProductClick = { openProduct = it })
     }
 }
 
