@@ -1,5 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.Vinted" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.Vinted" parent="Theme.MaterialComponents.Light.NoActionBar" />
+
+    <style name="Theme.Vinted.Fullscreen" parent="Theme.Vinted">
+        <item name="android:actionBarStyle">@style/Widget.Theme.Vinted.ActionBar.Fullscreen</item>
+        <item name="android:windowActionBarOverlay">true</item>
+        <item name="android:windowBackground">@null</item>
+    </style>
+
+    <style name="ThemeOverlay.Vinted.FullscreenContainer" parent="">
+        <item name="fullscreenBackgroundColor">@color/boxDivColor</item>
+        <item name="fullscreenTextColor">@color/highlight_blue</item>
+    </style>
 </resources>
