@@ -17,5 +17,7 @@ sdk.dir=/path/to/Android/Sdk
 #   - supabase.url  = https://<project-ref>.supabase.co
 #   - supabase.anon.key = <your anon/public key from Project Settings → API>
 #
-supabase.url=http://10.0.2.2:8000   # emulator → always use 10.0.2.2, never localhost
+# emulator → always use 10.0.2.2, never localhost
+
+supabase.url=http://10.0.2.2:8000
 supabase.anon.key=your-anon-key-here
