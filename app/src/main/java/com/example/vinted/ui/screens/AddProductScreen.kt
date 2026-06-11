@@ -61,6 +61,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -68,6 +70,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.vinted.ui.models.AddProductUiState
+import com.example.vinted.ui.models.AddProductViewModel
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -96,7 +101,10 @@ private const val MAX_PHOTOS = 6
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddProductScreen(onBack: () -> Unit = {}) {
+fun AddProductScreen(
+    onBack: () -> Unit = {},
+    viewModel: AddProductViewModel = viewModel(),
+) {
     var currentStep by remember { mutableStateOf(1) }
     val selectedPhotos = remember { mutableStateListOf<Uri>() }
     var title by remember { mutableStateOf("") }
@@ -106,6 +114,25 @@ fun AddProductScreen(onBack: () -> Unit = {}) {
     var condition by remember { mutableStateOf("") }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+
+    LaunchedEffect(uiState) {
+        when (val state = uiState) {
+            is AddProductUiState.Submitted -> {
+                snackbarHostState.showSnackbar("Listing posted successfully!")
+                currentStep = 1
+                selectedPhotos.clear()
+                title = ""; description = ""; price = ""; category = ""; condition = ""
+                viewModel.resetState()
+            }
+            is AddProductUiState.Error -> {
+                snackbarHostState.showSnackbar(state.message)
+                viewModel.resetState()
+            }
+            else -> {}
+        }
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -171,14 +198,18 @@ fun AddProductScreen(onBack: () -> Unit = {}) {
                     price = price,
                     category = category,
                     condition = condition,
+                    isLoading = uiState is AddProductUiState.Uploading,
                     onEdit = { currentStep = 2 },
                     onPost = {
-                        scope.launch {
-                            snackbarHostState.showSnackbar("Listing posted successfully!")
-                        }
-                        currentStep = 1
-                        selectedPhotos.clear()
-                        title = ""; description = ""; price = ""; category = ""; condition = ""
+                        viewModel.postListing(
+                            context = context,
+                            photoUris = selectedPhotos.toList(),
+                            title = title,
+                            description = description,
+                            price = price,
+                            category = category,
+                            condition = condition,
+                        )
                     },
                 )
             }
@@ -543,6 +574,7 @@ private fun ConfirmationStep(
     price: String,
     category: String,
     condition: String,
+    isLoading: Boolean = false,
     onEdit: () -> Unit,
     onPost: () -> Unit,
 ) {
@@ -609,7 +641,11 @@ private fun ConfirmationStep(
         }
 
         Spacer(Modifier.height(24.dp))
-        PrimaryButton(text = "Post Listing", enabled = true, onClick = onPost)
+        PrimaryButton(
+            text = if (isLoading) "Posting…" else "Post Listing",
+            enabled = !isLoading,
+            onClick = onPost,
+        )
         Spacer(Modifier.height(10.dp))
         TextButton(
             onClick = onEdit,
