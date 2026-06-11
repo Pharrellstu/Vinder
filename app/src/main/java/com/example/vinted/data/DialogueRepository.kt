@@ -66,7 +66,7 @@ class DialogueRepository : IDialogueRepository {
                     )
                 }
 
-            val unreadCount = messages.count { !it.isFromMe && true }
+            val unreadCount = messages.count { !it.isFromMe }
 
             Conversation(
                 id = dialogue.dialogueId.toString(),
