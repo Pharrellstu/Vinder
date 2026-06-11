@@ -10,6 +10,9 @@ import com.example.vinted.ui.initialisers.SupabaseClientInitialiser
 import io.github.jan.supabase.realtime.PostgresAction
 import io.github.jan.supabase.realtime.channel
 import io.github.jan.supabase.realtime.postgresChangeFlow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,7 +34,12 @@ class ChatViewModel(
     private val _uiState = MutableStateFlow<ChatUiState>(ChatUiState.Loading)
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
+    private val _sendError = MutableStateFlow<String?>(null)
+    val sendError: StateFlow<String?> = _sendError.asStateFlow()
+
     private val channel = SupabaseClientInitialiser.client.channel("dialogue-$dialogueId")
+
+    private val cleanupScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     init {
         loadMessages()
@@ -79,14 +87,17 @@ class ChatViewModel(
         viewModelScope.launch {
             runCatching {
                 repository.sendMessage(dialogueId, senderId, text)
+            }.onFailure {
+                _sendError.value = it.message ?: "Failed to send message"
             }
         }
     }
 
     override fun onCleared() {
         super.onCleared()
-        viewModelScope.launch {
+        cleanupScope.launch {
             channel.unsubscribe()
+            cleanupScope.cancel()
         }
     }
 }
