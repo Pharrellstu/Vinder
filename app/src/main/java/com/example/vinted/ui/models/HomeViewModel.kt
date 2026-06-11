@@ -37,7 +37,7 @@ class HomeViewModel(
                 val categories = repository.getCategories()
                 val allItems = repository.getFeedItems()
                 val saleItems = allItems.filter { (it.discountPercent ?: 0) > 0 }
-                val gridItems = allItems.filter { (it.discountPercent ?: 0) == 0 }
+                val gridItems = allItems  // all items go in the grid
                 HomeUiState.Success(categories, saleItems, gridItems)
             }.onSuccess { _uiState.value = it }
              .onFailure { _uiState.value = HomeUiState.Error(it.message ?: "Failed to load feed") }

@@ -28,12 +28,16 @@ class ItemRepository : IItemRepository {
             .select { filter { eq("is_listed", true) } }
             .decodeList<ItemEntity>()
 
+        val sellerIds = items.map { it.sellerId }.distinct()
+        val sellerMap: Map<Int, AccountEntity> = if (sellerIds.isNotEmpty()) {
+            client.from("account")
+                .select { filter { isIn("account_id", sellerIds) } }
+                .decodeList<AccountEntity>()
+                .associateBy { it.accountId }
+        } else emptyMap()
+
         return items.map { item ->
-            val seller = runCatching {
-                client.from("account")
-                    .select { filter { eq("account_id", item.sellerId) } }
-                    .decodeSingle<AccountEntity>()
-            }.getOrNull()
+            val seller = sellerMap[item.sellerId]
 
             Product(
                 id = item.itemId.toString(),
@@ -46,7 +50,7 @@ class ItemRepository : IItemRepository {
                 discountPercent = item.discount,
                 size = null,
                 brand = null,
-                sellerInitial = seller?.accountName?.first()?.uppercase() ?: "?",
+                sellerInitial = seller?.accountName?.firstOrNull()?.uppercase() ?: "?",
                 sellerName = seller?.accountName ?: "unknown",
                 rating = 0f,
             )
