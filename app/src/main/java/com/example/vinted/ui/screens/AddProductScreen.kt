@@ -120,11 +120,11 @@ fun AddProductScreen(
     LaunchedEffect(uiState) {
         when (val state = uiState) {
             is AddProductUiState.Submitted -> {
-                snackbarHostState.showSnackbar("Listing posted successfully!")
                 currentStep = 1
                 selectedPhotos.clear()
                 title = ""; description = ""; price = ""; category = ""; condition = ""
                 viewModel.resetState()
+                snackbarHostState.showSnackbar("Listing posted successfully!")
             }
             is AddProductUiState.Error -> {
                 snackbarHostState.showSnackbar(state.message)

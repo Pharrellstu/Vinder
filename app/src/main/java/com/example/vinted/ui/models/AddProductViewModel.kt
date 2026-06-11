@@ -7,10 +7,12 @@ import androidx.lifecycle.viewModelScope
 import com.example.vinted.data.IItemRepository
 import com.example.vinted.data.ItemRepository
 import com.example.vinted.data.SessionManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 sealed class AddProductUiState {
     object Idle : AddProductUiState()
@@ -51,6 +53,7 @@ class AddProductViewModel(
             runCatching {
                 val categoryId = repository.getCategoryId(category)
                 val conditionId = repository.getConditionId(condition)
+                // Insert with is_listed=false so incomplete listings are never visible
                 val itemId = repository.insertItem(
                     sellerId = sellerId,
                     categoryId = categoryId,
@@ -59,13 +62,19 @@ class AddProductViewModel(
                     description = description,
                     price = priceDouble,
                 )
-                photoUris.forEachIndexed { index, uri ->
-                    val bytes = context.contentResolver.openInputStream(uri)?.readBytes()
-                    if (bytes != null) {
-                        val url = repository.uploadPhoto(itemId, index, bytes)
-                        repository.insertItemPhoto(itemId, url)
+                // Read all photo bytes on IO thread before any uploads
+                val photoBytesList = withContext(Dispatchers.IO) {
+                    photoUris.map { uri ->
+                        context.contentResolver.openInputStream(uri)?.readBytes()
+                            ?: error("Failed to read photo: $uri")
                     }
                 }
+                photoBytesList.forEachIndexed { index, bytes ->
+                    val url = repository.uploadPhoto(itemId, index, bytes)
+                    repository.insertItemPhoto(itemId, url)
+                }
+                // All photos uploaded — flip listing to visible
+                repository.updateItemToListed(itemId)
             }.onSuccess {
                 _uiState.value = AddProductUiState.Submitted
             }.onFailure {

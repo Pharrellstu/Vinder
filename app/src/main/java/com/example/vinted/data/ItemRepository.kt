@@ -22,6 +22,7 @@ interface IItemRepository {
         description: String,
         price: Double,
     ): Int
+    suspend fun updateItemToListed(itemId: Int)
     suspend fun uploadPhoto(itemId: Int, index: Int, bytes: ByteArray): String
     suspend fun insertItemPhoto(itemId: Int, photoUrl: String)
 }
@@ -65,12 +66,18 @@ class ItemRepository : IItemRepository {
                 "item_name" to name,
                 "item_description" to description,
                 "item_price" to price,
-                "is_listed" to true,
+                "is_listed" to false,
                 "is_sold" to false,
                 "created_at" to java.time.Instant.now().toString(),
             )
         ) { select() }
         return result.decodeSingle<ItemEntity>().itemId
+    }
+
+    override suspend fun updateItemToListed(itemId: Int) {
+        client.from("item").update(mapOf("is_listed" to true)) {
+            filter { eq("item_id", itemId) }
+        }
     }
 
     override suspend fun uploadPhoto(itemId: Int, index: Int, bytes: ByteArray): String {
