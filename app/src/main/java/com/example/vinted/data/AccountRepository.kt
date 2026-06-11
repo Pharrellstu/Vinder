@@ -7,8 +7,10 @@ import com.example.vinted.data.dto.ItemEntity
 import com.example.vinted.ui.initialisers.SupabaseClientInitialiser
 import com.example.vinted.ui.models.ListingItem
 import com.example.vinted.ui.models.UserProfile
+import com.example.vinted.ui.theme.VinderAzure
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Count
+import kotlin.math.roundToInt
 
 interface IAccountRepository {
     suspend fun getProfile(accountId: Int): UserProfile
@@ -20,6 +22,7 @@ interface IAccountRepository {
 class AccountRepository : IAccountRepository {
 
     private val client = SupabaseClientInitialiser.client
+    private val ITEM_DEFAULT_BG_COLOR = Color(0xFFE5E5EA)
 
     override suspend fun getProfile(accountId: Int): UserProfile {
         val account = client.from("account")
@@ -51,7 +54,7 @@ class AccountRepository : IAccountRepository {
         return UserProfile(
             handle = account.accountName,
             initial = account.accountName.first().uppercase(),
-            avatarColor = Color(0xFF4E8098),
+            avatarColor = VinderAzure,
             rating = 0f,
             reviewCount = 0,
             location = sideInfo?.location ?: "",
@@ -74,8 +77,8 @@ class AccountRepository : IAccountRepository {
             .map { item ->
                 ListingItem(
                     id = item.itemId.toString(),
-                    price = item.price.toInt(),
-                    bgColor = Color(0xFFE5E5EA),
+                    price = item.price.roundToInt(),
+                    bgColor = ITEM_DEFAULT_BG_COLOR,
                 )
             }
     }
@@ -92,8 +95,8 @@ class AccountRepository : IAccountRepository {
             .map { item ->
                 ListingItem(
                     id = item.itemId.toString(),
-                    price = item.price.toInt(),
-                    bgColor = Color(0xFFE5E5EA),
+                    price = item.price.roundToInt(),
+                    bgColor = ITEM_DEFAULT_BG_COLOR,
                 )
             }
     }
