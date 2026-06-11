@@ -215,4 +215,4 @@ INSERT INTO account_side_information (
         'Tallinn, Estonia',
         'https://i.pravatar.cc/150?u=carol'
     )
-ON CONFLICT (account_id) DO NOTHING;
+ON CONFLICT DO NOTHING;
