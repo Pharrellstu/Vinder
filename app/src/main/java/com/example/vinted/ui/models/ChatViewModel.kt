@@ -9,10 +9,12 @@ import com.example.vinted.data.dto.DialogueMessageEntity
 import com.example.vinted.ui.initialisers.SupabaseClientInitialiser
 import io.github.jan.supabase.realtime.PostgresAction
 import io.github.jan.supabase.realtime.channel
+import io.github.jan.supabase.realtime.decodeRecord
 import io.github.jan.supabase.realtime.postgresChangeFlow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -61,9 +63,9 @@ class ChatViewModel(
     private fun subscribeToNewMessages() {
         channel.postgresChangeFlow<PostgresAction.Insert>(schema = "public") {
             table = "dialogue_message"
-            filter = "dialogue_id=eq.$dialogueId"
         }.onEach { action ->
             val entity = action.decodeRecord<DialogueMessageEntity>()
+            if (entity.dialogueId != dialogueId) return@onEach
             val newMessage = ChatMessage(
                 id = entity.messageId.toString(),
                 text = entity.text,

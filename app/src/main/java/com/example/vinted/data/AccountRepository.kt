@@ -9,8 +9,12 @@ import com.example.vinted.ui.models.ListingItem
 import com.example.vinted.ui.models.UserProfile
 import com.example.vinted.ui.theme.VinderAzure
 import io.github.jan.supabase.postgrest.from
-import io.github.jan.supabase.postgrest.query.Count
 import kotlin.math.roundToInt
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+
+@Serializable
+private data class FollowRow(@SerialName("following_id") val followingId: Int)
 
 interface IAccountRepository {
     suspend fun getProfile(accountId: Int): UserProfile
@@ -34,20 +38,20 @@ class AccountRepository : IAccountRepository {
             .decodeSingleOrNull<AccountSideInfoEntity>()
 
         val listedCount = client.from("item")
-            .select(count = Count.EXACT) {
+            .select {
                 filter {
                     eq("seller_id", accountId)
                     eq("is_listed", true)
                 }
-            }.countOrThrow().toInt()
+            }.decodeList<ItemEntity>().size
 
         val soldCount = client.from("item")
-            .select(count = Count.EXACT) {
+            .select {
                 filter {
                     eq("seller_id", accountId)
                     eq("is_sold", true)
                 }
-            }.countOrThrow().toInt()
+            }.decodeList<ItemEntity>().size
 
         val followerCount = getFollowerCount(accountId)
 
@@ -103,8 +107,7 @@ class AccountRepository : IAccountRepository {
 
     override suspend fun getFollowerCount(accountId: Int): Int {
         return client.from("account_following")
-            .select(count = Count.EXACT) {
-                filter { eq("following_id", accountId) }
-            }.countOrThrow().toInt()
+            .select { filter { eq("following_id", accountId) } }
+            .decodeList<FollowRow>().size
     }
 }
