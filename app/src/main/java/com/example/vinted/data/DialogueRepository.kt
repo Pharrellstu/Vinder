@@ -11,6 +11,7 @@ import io.github.jan.supabase.postgrest.from
 
 interface IDialogueRepository {
     suspend fun getConversations(accountId: Int): List<Conversation>
+    suspend fun getMessages(dialogueId: Int): List<ChatMessage>
     suspend fun sendMessage(dialogueId: Int, senderId: Int, text: String)
 }
 
@@ -80,6 +81,20 @@ class DialogueRepository : IDialogueRepository {
                 messages = messages,
             )
         }
+    }
+
+    override suspend fun getMessages(dialogueId: Int): List<ChatMessage> {
+        return client.from("dialogue_message")
+            .select { filter { eq("dialogue_id", dialogueId) } }
+            .decodeList<DialogueMessageEntity>()
+            .map { msg ->
+                ChatMessage(
+                    id = msg.messageId.toString(),
+                    text = msg.text,
+                    isFromMe = msg.senderId == SessionManager.currentAccountId,
+                    time = msg.timestamp.take(16).replace("T", " "),
+                )
+            }
     }
 
     override suspend fun sendMessage(dialogueId: Int, senderId: Int, text: String) {
