@@ -18,10 +18,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,11 +38,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.vinted.ui.components.BottomNavBar
 import com.example.vinted.ui.components.ProfileListingGrid
 import com.example.vinted.ui.components.ProfileStatsCard
 import com.example.vinted.ui.components.ProfileTabRow
-import com.example.vinted.ui.models.ListingItem
+import com.example.vinted.ui.models.ProfileUiState
+import com.example.vinted.ui.models.ProfileViewModel
 import com.example.vinted.ui.models.UserProfile
 import com.example.vinted.ui.theme.Grey11
 import com.example.vinted.ui.theme.Grey36
@@ -49,68 +54,94 @@ import com.example.vinted.ui.theme.Grey97
 import com.example.vinted.ui.theme.VinderAzure
 import com.example.vinted.ui.theme.VintedTheme
 
-private val sampleProfile = UserProfile(
-    handle = "your.handle",
-    initial = "Y",
-    avatarColor = Color(0xFF9B6D7A),
-    rating = 4.9f,
-    reviewCount = 142,
-    location = "Berlin",
-    bio = "Decluttering my closet — mostly minimalist staples and vintage finds. Smoke-free home 🤍",
-    listedCount = 18,
-    soldCount = 47,
-    followerCount = 312,
-)
-
-private val sampleListings = listOf(
-    ListingItem("l1", 28, Color(0xFFE5E5EA)),
-    ListingItem("l2", 65, Color(0xFFE4E8DE)),
-    ListingItem("l3", 19, Color(0xFFE5E5EA)),
-    ListingItem("l4", 34, Color(0xFFE5E5EA)),
-    ListingItem("l5", 42, Color(0xFFDCE6EA)),
-    ListingItem("l6", 38, Color(0xFFF1E5D5)),
-)
-
 private val profileTabs = listOf("Listings", "Sold", "Reviews")
 
 @Composable
-fun ProfileScreen(onTabSelected: (Int) -> Unit = {}) {
+fun ProfileScreen(
+    onTabSelected: (Int) -> Unit = {},
+    accountId: Int? = null,
+    viewModel: ProfileViewModel = viewModel(
+        factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
+                ProfileViewModel(accountId = accountId) as T
+        }
+    ),
+) {
     var selectedTab by remember { mutableStateOf(0) }
+    val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
         bottomBar = { BottomNavBar(selectedIndex = 4, onItemSelected = onTabSelected) },
         containerColor = Grey97,
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-        ) {
-            item { ProfileHeader(profile = sampleProfile) }
-            item {
-                ProfileStatsCard(
-                    listed = sampleProfile.listedCount,
-                    sold = sampleProfile.soldCount,
-                    followers = sampleProfile.followerCount,
-                )
-            }
-            item { ProfileActionButtons() }
-            item {
-                ProfileTabRow(
-                    tabs = profileTabs,
-                    selectedTab = selectedTab,
-                    onTabSelected = { selectedTab = it },
-                )
-            }
-            if (selectedTab == 0) {
-                item {
-                    ProfileListingGrid(
-                        listings = sampleListings,
-                        modifier = Modifier.padding(top = 10.dp),
-                    )
+        when (val state = uiState) {
+            is ProfileUiState.Loading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(color = VinderAzure)
                 }
             }
-            item { Spacer(modifier = Modifier.height(16.dp)) }
+            is ProfileUiState.Error -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(state.message, color = Grey57, fontSize = 14.sp)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        TextButton(onClick = { viewModel.load() }) {
+                            Text("Retry", color = VinderAzure)
+                        }
+                    }
+                }
+            }
+            is ProfileUiState.Success -> {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                ) {
+                    item { ProfileHeader(profile = state.profile) }
+                    item {
+                        ProfileStatsCard(
+                            listed = state.profile.listedCount,
+                            sold = state.profile.soldCount,
+                            followers = state.profile.followerCount,
+                        )
+                    }
+                    item { ProfileActionButtons() }
+                    item {
+                        ProfileTabRow(
+                            tabs = profileTabs,
+                            selectedTab = selectedTab,
+                            onTabSelected = { selectedTab = it },
+                        )
+                    }
+                    if (selectedTab == 0) {
+                        item {
+                            ProfileListingGrid(
+                                listings = state.listings,
+                                modifier = Modifier.padding(top = 10.dp),
+                            )
+                        }
+                    } else if (selectedTab == 1) {
+                        item {
+                            ProfileListingGrid(
+                                listings = state.soldItems,
+                                modifier = Modifier.padding(top = 10.dp),
+                            )
+                        }
+                    }
+                    item { Spacer(modifier = Modifier.height(16.dp)) }
+                }
+            }
         }
     }
 }
