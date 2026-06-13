@@ -13,9 +13,11 @@ import com.example.vinted.ui.screens.AddProductScreen
 import com.example.vinted.ui.screens.HomeScreen
 import com.example.vinted.ui.screens.LoginScreen
 import com.example.vinted.ui.screens.MessagesScreen
+import com.example.vinted.ui.screens.NotificationSettingsScreen
 import com.example.vinted.ui.screens.ProfileScreen
 import com.example.vinted.ui.screens.RegisterScreen
 import com.example.vinted.ui.screens.SearchResultsScreen
+import com.example.vinted.ui.screens.SettingsScreen
 import com.example.vinted.ui.theme.VintedTheme
 
 class MainActivity : ComponentActivity() {
@@ -51,14 +53,16 @@ fun VinderApp() {
             onNavigateToLogin = { authScreen = AuthScreen.LOGIN }
         )
 
-        AuthScreen.HOME -> MainTabs()
+        AuthScreen.HOME -> MainTabs(onLoggedOut = { authScreen = AuthScreen.LOGIN })
     }
 }
 
 @Composable
-private fun MainTabs() {
+private fun MainTabs(onLoggedOut: () -> Unit) {
     var selectedTab by rememberSaveable { mutableStateOf(0) }
     var showAddProduct by rememberSaveable { mutableStateOf(false) }
+    var showSettings by rememberSaveable { mutableStateOf(false) }
+    var showNotifications by rememberSaveable { mutableStateOf(false) }
 
     // The "+" FAB (index 2) opens the Add Product flow as a modal over the current tab.
     val onTabSelected: (Int) -> Unit = { index ->
@@ -70,10 +74,25 @@ private fun MainTabs() {
         return
     }
 
+    // Notifications is a sub-screen of Settings; backing out returns to Settings.
+    if (showNotifications) {
+        NotificationSettingsScreen(onBack = { showNotifications = false })
+        return
+    }
+
+    if (showSettings) {
+        SettingsScreen(
+            onBack = { showSettings = false },
+            onLoggedOut = onLoggedOut,
+            onOpenNotifications = { showNotifications = true },
+        )
+        return
+    }
+
     when (selectedTab) {
         1 -> SearchResultsScreen(onTabSelected = onTabSelected)
         3 -> MessagesScreen(onTabSelected = onTabSelected)
-        4 -> ProfileScreen(onTabSelected = onTabSelected)
+        4 -> ProfileScreen(onTabSelected = onTabSelected, onOpenSettings = { showSettings = true })
         else -> HomeScreen(onTabSelected = onTabSelected)
     }
 }

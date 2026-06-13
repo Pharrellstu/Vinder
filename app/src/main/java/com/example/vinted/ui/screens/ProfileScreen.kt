@@ -59,6 +59,7 @@ private val profileTabs = listOf("Listings", "Sold", "Reviews")
 @Composable
 fun ProfileScreen(
     onTabSelected: (Int) -> Unit = {},
+    onOpenSettings: () -> Unit = {},
     accountId: Int? = null,
     viewModel: ProfileViewModel = viewModel(
         factory = object : androidx.lifecycle.ViewModelProvider.Factory {
@@ -108,7 +109,7 @@ fun ProfileScreen(
                         .fillMaxSize()
                         .padding(padding),
                 ) {
-                    item { ProfileHeader(profile = state.profile) }
+                    item { ProfileHeader(profile = state.profile, onOpenSettings = onOpenSettings) }
                     item {
                         ProfileStatsCard(
                             listed = state.profile.listedCount,
@@ -147,7 +148,7 @@ fun ProfileScreen(
 }
 
 @Composable
-private fun ProfileHeader(profile: UserProfile) {
+private fun ProfileHeader(profile: UserProfile, onOpenSettings: () -> Unit = {}) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -159,7 +160,7 @@ private fun ProfileHeader(profile: UserProfile) {
                 .padding(top = 8.dp),
             horizontalArrangement = Arrangement.End,
         ) {
-            SettingsButton()
+            SettingsButton(onClick = onOpenSettings)
         }
         Spacer(modifier = Modifier.height(8.dp))
         ProfileAvatar(initial = profile.initial, color = profile.avatarColor)
@@ -189,14 +190,14 @@ private fun ProfileHeader(profile: UserProfile) {
 }
 
 @Composable
-private fun SettingsButton() {
+private fun SettingsButton(onClick: () -> Unit = {}) {
     Box(
         modifier = Modifier
             .size(36.dp)
             .shadow(elevation = 1.dp, shape = CircleShape, spotColor = Color.Black.copy(alpha = 0.06f))
             .clip(CircleShape)
             .background(Color.White)
-            .clickable {}
+            .clickable(onClick = onClick)
             .padding(6.dp),
         contentAlignment = Alignment.Center,
     ) {

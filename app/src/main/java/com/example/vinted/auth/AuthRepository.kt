@@ -13,6 +13,7 @@ interface IAuthRepository {
     suspend fun login(email: String, password: String): Result<Unit>
     suspend fun register(email: String, password: String): Result<Unit>
     suspend fun verifyOtp(email: String, token: String): Result<Unit>
+    suspend fun logout(): Result<Unit>
     fun currentSession(): UserSession?
 }
 
@@ -46,6 +47,11 @@ open class AuthRepository : IAuthRepository {
             email = email,
             token = token
         )
+    }
+
+    override suspend fun logout(): Result<Unit> = runCatching {
+        SupabaseClientInitialiser.client.auth.signOut()
+        SessionManager.clear()
     }
 
     override fun currentSession(): UserSession? =
