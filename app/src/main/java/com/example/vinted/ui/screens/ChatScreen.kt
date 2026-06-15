@@ -20,6 +20,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -30,12 +31,10 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,11 +46,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.launch
-import com.example.vinted.data.ChatRepository
-import com.example.vinted.data.SupabaseConfig
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.vinted.ui.components.InitialAvatar
 import com.example.vinted.ui.models.ChatMessage
+import com.example.vinted.ui.models.ChatUiState
+import com.example.vinted.ui.models.ChatViewModel
 import com.example.vinted.ui.models.Conversation
 import com.example.vinted.ui.models.sampleConversations
 import com.example.vinted.ui.theme.Grey11
@@ -66,21 +65,17 @@ import com.example.vinted.ui.theme.VintedTheme
 fun ChatScreen(
     conversation: Conversation,
     onBack: () -> Unit = {},
+    viewModel: ChatViewModel = viewModel(
+        key = "chat-${conversation.dialogueId}",
+        factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
+                ChatViewModel(dialogueId = conversation.dialogueId) as T
+        },
+    ),
 ) {
-    val messages = remember(conversation.id) {
-        mutableStateListOf<ChatMessage>().apply { addAll(conversation.messages) }
-    }
+    val uiState by viewModel.uiState.collectAsState()
     var draft by remember { mutableStateOf("") }
-    val scope = rememberCoroutineScope()
-
-    // Load this dialogue's messages from Supabase; keep the sample data on failure.
-    LaunchedEffect(conversation.dialogueId) {
-        val dbMessages = ChatRepository.getMessages(conversation.dialogueId)
-        if (dbMessages.isNotEmpty()) {
-            messages.clear()
-            messages.addAll(dbMessages)
-        }
-    }
 
     Scaffold(
         containerColor = Grey97,
@@ -121,23 +116,8 @@ fun ChatScreen(
                 onSend = {
                     val text = draft.trim()
                     if (text.isNotEmpty()) {
-                        messages.add(
-                            ChatMessage(
-                                id = "local-${messages.size}",
-                                text = text,
-                                isFromMe = true,
-                                time = "now",
-                            ),
-                        )
+                        viewModel.sendMessage(text)
                         draft = ""
-                        // Persist to Supabase (logs the payload + DB response).
-                        scope.launch {
-                            ChatRepository.sendMessage(
-                                dialogueId = conversation.dialogueId,
-                                senderId = SupabaseConfig.CURRENT_ACCOUNT_ID,
-                                text = text,
-                            )
-                        }
                     }
                 },
             )
@@ -151,8 +131,29 @@ fun ChatScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             item { DateSeparator("Today, 14:12") }
-            items(messages, key = { it.id }) { message ->
-                MessageBubble(message)
+            when (val state = uiState) {
+                is ChatUiState.Loading -> item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(color = VinderAzure)
+                    }
+                }
+                is ChatUiState.Error -> item {
+                    Text(
+                        text = state.message,
+                        color = Grey57,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                    )
+                }
+                is ChatUiState.Success -> {
+                    items(state.messages, key = { it.id }) { message ->
+                        MessageBubble(message)
+                    }
+                }
             }
             item { Spacer(modifier = Modifier.size(8.dp)) }
         }

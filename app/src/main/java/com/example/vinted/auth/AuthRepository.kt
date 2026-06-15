@@ -1,10 +1,13 @@
 package com.example.vinted.auth
 
+import com.example.vinted.data.SessionManager
+import com.example.vinted.data.dto.AccountEntity
 import com.example.vinted.ui.initialisers.SupabaseClientInitialiser
 import io.github.jan.supabase.auth.OtpType
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.user.UserSession
+import io.github.jan.supabase.postgrest.from
 
 interface IAuthRepository {
     suspend fun login(email: String, password: String): Result<Unit>
@@ -20,6 +23,13 @@ open class AuthRepository : IAuthRepository {
             this.email = email
             this.password = password
         }
+        val account = SupabaseClientInitialiser.client.from("account")
+            .select {
+                filter { eq("account_email", email) }
+            }
+            .decodeSingle<AccountEntity>()
+        SessionManager.currentAccountId = account.accountId
+        SessionManager.currentEmail = account.accountEmail
     }
 
     override suspend fun register(email: String, password: String): Result<Unit> = runCatching {
