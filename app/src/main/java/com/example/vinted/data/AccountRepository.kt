@@ -21,6 +21,7 @@ interface IAccountRepository {
     suspend fun getListedItems(accountId: Int): List<ListingItem>
     suspend fun getSoldItems(accountId: Int): List<ListingItem>
     suspend fun getFollowerCount(accountId: Int): Int
+    suspend fun updateProfile(accountId: Int, name: String, bio: String, location: String)
 }
 
 class AccountRepository : IAccountRepository {
@@ -109,5 +110,36 @@ class AccountRepository : IAccountRepository {
         return client.from("account_following")
             .select { filter { eq("following_id", accountId) } }
             .decodeList<FollowRow>().size
+    }
+
+    override suspend fun updateProfile(accountId: Int, name: String, bio: String, location: String) {
+        client.from("account").update(mapOf("account_name" to name)) {
+            filter { eq("account_id", accountId) }
+        }
+
+        // account_side_information holds one row per account (UNIQUE account_id);
+        // update it in place when present, otherwise create it.
+        val existing = client.from("account_side_information")
+            .select { filter { eq("account_id", accountId) } }
+            .decodeSingleOrNull<AccountSideInfoEntity>()
+
+        if (existing == null) {
+            client.from("account_side_information").insert(
+                mapOf(
+                    "account_id" to accountId,
+                    "account_bio" to bio,
+                    "account_location" to location,
+                ),
+            )
+        } else {
+            client.from("account_side_information").update(
+                mapOf(
+                    "account_bio" to bio,
+                    "account_location" to location,
+                ),
+            ) {
+                filter { eq("account_id", accountId) }
+            }
+        }
     }
 }
