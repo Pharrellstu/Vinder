@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -14,6 +15,7 @@ import androidx.compose.runtime.setValue
 import com.example.vinted.ui.models.Product
 import com.example.vinted.ui.models.Seller
 import com.example.vinted.ui.screens.AddProductScreen
+import com.example.vinted.ui.screens.EditProfileScreen
 import com.example.vinted.ui.screens.HomeScreen
 import com.example.vinted.ui.screens.ItemDetailScreen
 import com.example.vinted.ui.screens.LoginScreen
@@ -68,6 +70,9 @@ private fun MainTabs() {
     var showAddProduct by rememberSaveable { mutableStateOf(false) }
     var openProduct by remember { mutableStateOf<Product?>(null) }
     var openSellerId by remember { mutableStateOf<Int?>(null) }
+    var showEditProfile by rememberSaveable { mutableStateOf(false) }
+    // Bumped after a profile edit so the Profile tab remounts and reloads fresh data.
+    var profileReloadToken by rememberSaveable { mutableStateOf(0) }
 
     // The "+" FAB (index 2) opens the Add Product flow as a modal over the current tab.
     val onTabSelected: (Int) -> Unit = { index ->
@@ -76,6 +81,18 @@ private fun MainTabs() {
 
     if (showAddProduct) {
         AddProductScreen(onBack = { showAddProduct = false })
+        return
+    }
+
+    if (showEditProfile) {
+        BackHandler { showEditProfile = false }
+        EditProfileScreen(
+            onBack = { showEditProfile = false },
+            onSaved = {
+                showEditProfile = false
+                profileReloadToken++
+            },
+        )
         return
     }
 
@@ -107,7 +124,12 @@ private fun MainTabs() {
     when (selectedTab) {
         1 -> SearchResultsScreen(onTabSelected = onTabSelected)
         3 -> MessagesScreen(onTabSelected = onTabSelected)
-        4 -> ProfileScreen(onTabSelected = onTabSelected)
+        4 -> key(profileReloadToken) {
+            ProfileScreen(
+                onTabSelected = onTabSelected,
+                onEditProfile = { showEditProfile = true },
+            )
+        }
         else -> HomeScreen(onTabSelected = onTabSelected, onProductClick = { openProduct = it })
     }
 }
