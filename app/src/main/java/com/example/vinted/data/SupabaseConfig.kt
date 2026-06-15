@@ -1,5 +1,6 @@
 package com.example.vinted.data
 
+@Deprecated("Use SessionManager.currentAccountId instead")
 object SupabaseConfig {
-    const val CURRENT_ACCOUNT_ID = ""
+    val CURRENT_ACCOUNT_ID: Int get() = SessionManager.currentAccountId
 }
