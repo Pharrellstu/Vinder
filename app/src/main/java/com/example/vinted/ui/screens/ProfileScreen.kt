@@ -59,6 +59,7 @@ private val profileTabs = listOf("Listings", "Sold", "Reviews")
 @Composable
 fun ProfileScreen(
     onTabSelected: (Int) -> Unit = {},
+    onEditProfile: () -> Unit = {},
     accountId: Int? = null,
     viewModel: ProfileViewModel = viewModel(
         factory = object : androidx.lifecycle.ViewModelProvider.Factory {
@@ -116,7 +117,7 @@ fun ProfileScreen(
                             followers = state.profile.followerCount,
                         )
                     }
-                    item { ProfileActionButtons() }
+                    item { ProfileActionButtons(onEditProfile = onEditProfile) }
                     item {
                         ProfileTabRow(
                             tabs = profileTabs,
@@ -231,7 +232,7 @@ private fun ProfileAvatar(initial: String, color: Color) {
 }
 
 @Composable
-private fun ProfileActionButtons() {
+private fun ProfileActionButtons(onEditProfile: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -244,6 +245,7 @@ private fun ProfileActionButtons() {
             bgColor = Color.White,
             textColor = Color.Black,
             borderColor = Grey91,
+            onClick = onEditProfile,
             modifier = Modifier.weight(1f),
         )
         ActionButton(
@@ -262,13 +264,14 @@ private fun ActionButton(
     textColor: Color,
     modifier: Modifier = Modifier,
     borderColor: Color = Color.Transparent,
+    onClick: () -> Unit = {},
 ) {
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(10.dp))
             .background(bgColor)
             .border(1.dp, borderColor, RoundedCornerShape(10.dp))
-            .clickable {}
+            .clickable(onClick = onClick)
             .padding(vertical = 13.dp),
         contentAlignment = Alignment.Center,
     ) {
