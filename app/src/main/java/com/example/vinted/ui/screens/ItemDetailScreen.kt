@@ -92,6 +92,7 @@ fun ItemDetailScreen(
     seller: Seller,
     description: String = "",
     onBack: () -> Unit = {},
+    onViewSellerProfile: () -> Unit = {},
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -159,7 +160,7 @@ fun ItemDetailScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 SellerProfileCard(
                     seller = seller,
-                    onViewProfile = { notify("Seller profile — coming soon") },
+                    onViewProfile = onViewSellerProfile,
                     onMessageSeller = { notify("Messaging — coming soon") },
                 )
                 Spacer(modifier = Modifier.height(16.dp))

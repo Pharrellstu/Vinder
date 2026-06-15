@@ -122,6 +122,7 @@ class ItemRepository : IItemRepository {
                 sellerInitial = seller?.accountName?.firstOrNull()?.uppercase() ?: "?",
                 sellerName = seller?.accountName ?: "unknown",
                 rating = 0f,
+                sellerId = item.sellerId,
             )
         }
     }
