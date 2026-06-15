@@ -21,6 +21,7 @@ import com.example.vinted.ui.screens.MessagesScreen
 import com.example.vinted.ui.screens.ProfileScreen
 import com.example.vinted.ui.screens.RegisterScreen
 import com.example.vinted.ui.screens.SearchResultsScreen
+import com.example.vinted.ui.screens.SellerPublicProfileScreen
 import com.example.vinted.ui.theme.VintedTheme
 import kotlin.math.abs
 
@@ -66,6 +67,7 @@ private fun MainTabs() {
     var selectedTab by rememberSaveable { mutableStateOf(0) }
     var showAddProduct by rememberSaveable { mutableStateOf(false) }
     var openProduct by remember { mutableStateOf<Product?>(null) }
+    var openSellerId by remember { mutableStateOf<Int?>(null) }
 
     // The "+" FAB (index 2) opens the Add Product flow as a modal over the current tab.
     val onTabSelected: (Int) -> Unit = { index ->
@@ -74,6 +76,17 @@ private fun MainTabs() {
 
     if (showAddProduct) {
         AddProductScreen(onBack = { showAddProduct = false })
+        return
+    }
+
+    // A seller profile opened from item detail sits on top, so back returns to the item.
+    val sellerId = openSellerId
+    if (sellerId != null) {
+        BackHandler { openSellerId = null }
+        SellerPublicProfileScreen(
+            accountId = sellerId,
+            onBack = { openSellerId = null },
+        )
         return
     }
 
@@ -86,6 +99,7 @@ private fun MainTabs() {
             seller = sellerFor(product),
             description = descriptionFor(product),
             onBack = { openProduct = null },
+            onViewSellerProfile = { openSellerId = product.sellerId },
         )
         return
     }
