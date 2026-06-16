@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.flow.collect
 import com.example.vinted.ui.models.EditProfileUiState
 import com.example.vinted.ui.models.EditProfileViewModel
 import com.example.vinted.ui.theme.Grey11
@@ -72,11 +73,13 @@ fun EditProfileScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    // Saving completed — let the host dismiss the screen and refresh the profile.
-    LaunchedEffect(uiState) {
-        if (uiState is EditProfileUiState.Saved) {
-            onSaved()
-        }
+    // Reload the current profile each time the screen is entered — the ViewModel
+    // is Activity-scoped and may be reused across opens.
+    LaunchedEffect(Unit) { viewModel.load() }
+
+    // One-shot: dismiss the screen and refresh the profile after a successful save.
+    LaunchedEffect(Unit) {
+        viewModel.saved.collect { onSaved() }
     }
 
     Scaffold(
@@ -96,7 +99,7 @@ fun EditProfileScreen(
         },
     ) { padding ->
         when (val state = uiState) {
-            is EditProfileUiState.Loading, is EditProfileUiState.Saved -> {
+            is EditProfileUiState.Loading -> {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
