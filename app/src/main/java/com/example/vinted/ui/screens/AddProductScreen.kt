@@ -95,7 +95,7 @@ import com.example.vinted.ui.theme.VinderAzureLight
 import com.example.vinted.ui.theme.VintedTheme
 import kotlinx.coroutines.launch
 
-private val CATEGORIES = listOf("Women", "Men", "Kids", "Home", "Electronics", "Books", "Sports")
+private val CATEGORIES = listOf("Clothing", "Electronics", "Books", "Home & Garden", "Sports", "Toys", "Vehicles", "Other")
 private val CONDITIONS = listOf("New", "Like New", "Good", "Fair")
 private const val MAX_PHOTOS = 6
 

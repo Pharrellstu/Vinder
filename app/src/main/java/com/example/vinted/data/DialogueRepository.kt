@@ -2,8 +2,11 @@ package com.example.vinted.data
 
 import androidx.compose.ui.graphics.Color
 import com.example.vinted.data.dto.AccountEntity
+import com.example.vinted.data.dto.AccountSideInfoEntity
 import com.example.vinted.data.dto.DialogueEntity
 import com.example.vinted.data.dto.DialogueMessageEntity
+import com.example.vinted.data.dto.ItemEntity
+import com.example.vinted.data.dto.ItemPhotoEntity
 import com.example.vinted.ui.initialisers.SupabaseClientInitialiser
 import com.example.vinted.ui.models.ChatMessage
 import com.example.vinted.ui.models.Conversation
@@ -37,10 +40,12 @@ class DialogueRepository : IDialogueRepository {
             .decodeList<DialogueEntity>()
 
         val allDialogues = (asCreator + asReceiver).distinctBy { it.dialogueId }
+        if (allDialogues.isEmpty()) return emptyList()
 
         val otherAccountIds = allDialogues.map { dialogue ->
             if (dialogue.creatorId == accountId) dialogue.receiverId else dialogue.creatorId
         }.distinct()
+        val itemIds = allDialogues.mapNotNull { it.itemId }.distinct()
 
         val accountMap: Map<Int, AccountEntity> = if (otherAccountIds.isNotEmpty()) {
             client.from("account")
@@ -49,11 +54,34 @@ class DialogueRepository : IDialogueRepository {
                 .associateBy { it.accountId }
         } else emptyMap()
 
+        val locationMap: Map<Int, String> = if (otherAccountIds.isNotEmpty()) {
+            client.from("account_side_information")
+                .select { filter { isIn("account_id", otherAccountIds) } }
+                .decodeList<AccountSideInfoEntity>()
+                .associate { it.accountId to (it.location ?: "") }
+        } else emptyMap()
+
+        val itemMap: Map<Int, ItemEntity> = if (itemIds.isNotEmpty()) {
+            client.from("item")
+                .select { filter { isIn("item_id", itemIds) } }
+                .decodeList<ItemEntity>()
+                .associateBy { it.itemId }
+        } else emptyMap()
+
+        val coverMap: Map<Int, String> = if (itemIds.isNotEmpty()) {
+            client.from("item_photo")
+                .select { filter { isIn("item_id", itemIds) } }
+                .decodeList<ItemPhotoEntity>()
+                .groupBy { it.itemId }
+                .mapValues { (_, photos) -> photos.first().photoUrl }
+        } else emptyMap()
+
         return allDialogues.mapIndexed { index, dialogue ->
             val otherAccountId = if (dialogue.creatorId == accountId)
                 dialogue.receiverId else dialogue.creatorId
 
             val otherAccount = accountMap[otherAccountId]
+            val item = dialogue.itemId?.let { itemMap[it] }
 
             val messages = client.from("dialogue_message")
                 .select { filter { eq("dialogue_id", dialogue.dialogueId) } }
@@ -68,16 +96,20 @@ class DialogueRepository : IDialogueRepository {
                 }
 
             val unreadCount = messages.count { !it.isFromMe }
+            val otherName = otherAccount?.accountName ?: "Unknown"
 
             Conversation(
                 id = dialogue.dialogueId.toString(),
                 dialogueId = dialogue.dialogueId,
-                handle = otherAccount?.accountName ?: "Unknown",
-                initial = otherAccount?.accountName?.firstOrNull()?.uppercase() ?: "?",
+                handle = otherName,
+                initial = otherName.firstOrNull()?.uppercase() ?: "?",
                 avatarColor = avatarColors[index % avatarColors.size],
                 lastMessage = messages.lastOrNull()?.text ?: "",
                 timeLabel = messages.lastOrNull()?.time?.takeLast(5) ?: "",
                 unreadCount = unreadCount,
+                itemTitle = item?.name ?: otherName,
+                fromLocation = locationMap[otherAccountId].orEmpty(),
+                coverImageUrl = dialogue.itemId?.let { coverMap[it] },
                 messages = messages,
             )
         }

@@ -11,6 +11,9 @@ data class Conversation(
     val lastMessage: String,
     val timeLabel: String,
     val unreadCount: Int = 0,
+    val itemTitle: String = "",
+    val fromLocation: String = "",
+    val coverImageUrl: String? = null,
     val messages: List<ChatMessage> = emptyList(),
 )
 

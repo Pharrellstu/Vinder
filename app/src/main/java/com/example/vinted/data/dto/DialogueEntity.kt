@@ -8,4 +8,5 @@ data class DialogueEntity(
     @SerialName("dialogue_id") val dialogueId: Int,
     @SerialName("dialogue_creator_id") val creatorId: Int,
     @SerialName("dialogue_receiver_id") val receiverId: Int,
+    @SerialName("item_id") val itemId: Int? = null,
 )

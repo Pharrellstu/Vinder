@@ -1,5 +1,7 @@
 package com.example.vinted.ui.screens
 
+import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -35,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -72,6 +75,7 @@ fun ProfileScreen(
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
 
     // The ViewModel is Activity-scoped, so its init-time load won't re-run when we
     // return here (e.g. after editing the profile). Reload whenever the screen is
@@ -123,7 +127,12 @@ fun ProfileScreen(
                             followers = state.profile.followerCount,
                         )
                     }
-                    item { ProfileActionButtons(onEditProfile = onEditProfile) }
+                    item {
+                        ProfileActionButtons(
+                            onEditProfile = onEditProfile,
+                            onShareProfile = { shareProfile(context, state.profile.handle) },
+                        )
+                    }
                     item {
                         ProfileTabRow(
                             tabs = profileTabs,
@@ -238,7 +247,7 @@ private fun ProfileAvatar(initial: String, color: Color) {
 }
 
 @Composable
-private fun ProfileActionButtons(onEditProfile: () -> Unit) {
+private fun ProfileActionButtons(onEditProfile: () -> Unit, onShareProfile: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -258,9 +267,18 @@ private fun ProfileActionButtons(onEditProfile: () -> Unit) {
             label = "Share profile",
             bgColor = VinderAzure,
             textColor = Color.White,
+            onClick = onShareProfile,
             modifier = Modifier.weight(1f),
         )
     }
+}
+
+private fun shareProfile(context: Context, handle: String) {
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, "Check out $handle's profile on Vinder!")
+    }
+    context.startActivity(Intent.createChooser(send, "Share profile"))
 }
 
 @Composable
