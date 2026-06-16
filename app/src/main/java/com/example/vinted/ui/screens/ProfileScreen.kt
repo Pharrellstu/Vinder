@@ -24,6 +24,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -71,6 +72,11 @@ fun ProfileScreen(
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     val uiState by viewModel.uiState.collectAsState()
+
+    // The ViewModel is Activity-scoped, so its init-time load won't re-run when we
+    // return here (e.g. after editing the profile). Reload whenever the screen is
+    // (re)entered so saved changes are reflected.
+    LaunchedEffect(Unit) { viewModel.load() }
 
     Scaffold(
         bottomBar = { BottomNavBar(selectedIndex = 4, onItemSelected = onTabSelected) },
