@@ -5,9 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.example.vinted.data.AccountRepository
 import com.example.vinted.data.IAccountRepository
 import com.example.vinted.data.SessionManager
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 sealed class EditProfileUiState {
@@ -19,7 +21,6 @@ sealed class EditProfileUiState {
         val isSaving: Boolean = false,
         val errorMessage: String? = null,
     ) : EditProfileUiState()
-    object Saved : EditProfileUiState()
     data class Error(val message: String) : EditProfileUiState()
 }
 
@@ -31,11 +32,14 @@ class EditProfileViewModel(
     private val _uiState = MutableStateFlow<EditProfileUiState>(EditProfileUiState.Loading)
     val uiState: StateFlow<EditProfileUiState> = _uiState.asStateFlow()
 
-    private val resolvedId: Int = accountId ?: SessionManager.currentAccountId
+    // One-shot "saved" signal. A sticky Saved state would persist on this
+    // Activity-scoped ViewModel and re-fire navigation every time the screen
+    // is reopened (the screen would close itself instantly). The screen calls
+    // load() on entry, so a buffered channel delivers the event exactly once.
+    private val _saved = Channel<Unit>(Channel.BUFFERED)
+    val saved = _saved.receiveAsFlow()
 
-    init {
-        load()
-    }
+    private val resolvedId: Int = accountId ?: SessionManager.currentAccountId
 
     fun load() {
         if (resolvedId == -1) {
@@ -90,7 +94,8 @@ class EditProfileViewModel(
                     location = current.location.trim(),
                 )
             }.onSuccess {
-                _uiState.value = EditProfileUiState.Saved
+                _uiState.value = current.copy(isSaving = false)
+                _saved.trySend(Unit)
             }.onFailure {
                 _uiState.value = current.copy(
                     isSaving = false,
