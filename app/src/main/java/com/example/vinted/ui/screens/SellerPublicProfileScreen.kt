@@ -37,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -44,6 +45,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil3.compose.AsyncImage
 import com.example.vinted.ui.components.ProfileListingGrid
 import com.example.vinted.ui.components.ProfileStatsCard
 import com.example.vinted.ui.components.ProfileTabRow
@@ -178,7 +180,7 @@ private fun SellerHeader(profile: UserProfile) {
             .padding(horizontal = 16.dp),
     ) {
         Spacer(modifier = Modifier.height(12.dp))
-        SellerAvatar(initial = profile.initial, color = profile.avatarColor)
+        SellerAvatar(initial = profile.initial, color = profile.avatarColor, avatarUrl = profile.avatarUrl)
         Text(
             text = profile.handle,
             fontSize = 22.sp,
@@ -211,7 +213,7 @@ private fun SellerHeader(profile: UserProfile) {
 }
 
 @Composable
-private fun SellerAvatar(initial: String, color: Color) {
+private fun SellerAvatar(initial: String, color: Color, avatarUrl: String? = null) {
     Box(
         modifier = Modifier
             .size(76.dp)
@@ -222,12 +224,23 @@ private fun SellerAvatar(initial: String, color: Color) {
             .background(color),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = initial.uppercase(),
-            fontSize = 30.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
-        )
+        if (avatarUrl != null) {
+            AsyncImage(
+                model = avatarUrl,
+                contentDescription = "Profile photo",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(CircleShape),
+            )
+        } else {
+            Text(
+                text = initial.uppercase(),
+                fontSize = 30.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+            )
+        }
     }
 }
 

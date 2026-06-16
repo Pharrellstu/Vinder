@@ -16,6 +16,7 @@ interface IDialogueRepository {
     suspend fun getConversations(accountId: Int): List<Conversation>
     suspend fun getMessages(dialogueId: Int): List<ChatMessage>
     suspend fun sendMessage(dialogueId: Int, senderId: Int, text: String)
+    suspend fun markRead(dialogueId: Int, accountId: Int)
 }
 
 class DialogueRepository : IDialogueRepository {
@@ -83,19 +84,20 @@ class DialogueRepository : IDialogueRepository {
             val otherAccount = accountMap[otherAccountId]
             val item = dialogue.itemId?.let { itemMap[it] }
 
-            val messages = client.from("dialogue_message")
+            val msgDtos = client.from("dialogue_message")
                 .select { filter { eq("dialogue_id", dialogue.dialogueId) } }
                 .decodeList<DialogueMessageEntity>()
-                .map { msg ->
-                    ChatMessage(
-                        id = msg.messageId.toString(),
-                        text = msg.text,
-                        isFromMe = msg.senderId == accountId,
-                        time = msg.timestamp.take(16).replace("T", " "),
-                    )
-                }
+            val messages = msgDtos.map { msg ->
+                ChatMessage(
+                    id = msg.messageId.toString(),
+                    text = msg.text,
+                    isFromMe = msg.senderId == accountId,
+                    time = msg.timestamp.take(16).replace("T", " "),
+                )
+            }
 
-            val unreadCount = messages.count { !it.isFromMe }
+            // Unread = incoming messages not yet marked read in the DB.
+            val unreadCount = msgDtos.count { it.senderId != accountId && !it.isRead }
             val otherName = otherAccount?.accountName ?: "Unknown"
 
             Conversation(
@@ -139,5 +141,15 @@ class DialogueRepository : IDialogueRepository {
                 "is_read" to false,
             )
         )
+    }
+
+    override suspend fun markRead(dialogueId: Int, accountId: Int) {
+        // Mark the other party's messages in this dialogue as read.
+        client.from("dialogue_message").update(mapOf("is_read" to true)) {
+            filter {
+                eq("dialogue_id", dialogueId)
+                neq("sender_id", accountId)
+            }
+        }
     }
 }

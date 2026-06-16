@@ -1,6 +1,11 @@
 package com.example.vinted.ui.screens
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -16,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -37,6 +43,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -45,6 +53,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil3.compose.AsyncImage
 import kotlinx.coroutines.flow.collect
 import com.example.vinted.ui.models.EditProfileUiState
 import com.example.vinted.ui.models.EditProfileViewModel
@@ -72,6 +81,7 @@ fun EditProfileScreen(
     ),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
 
     // Reload the current profile each time the screen is entered — the ViewModel
     // is Activity-scoped and may be reused across opens.
@@ -132,6 +142,7 @@ fun EditProfileScreen(
                     onNameChange = viewModel::onNameChange,
                     onLocationChange = viewModel::onLocationChange,
                     onBioChange = viewModel::onBioChange,
+                    onAvatarSelected = { uri -> viewModel.uploadAvatar(context, uri) },
                     onSave = viewModel::save,
                 )
             }
@@ -146,8 +157,12 @@ private fun EditProfileForm(
     onNameChange: (String) -> Unit,
     onLocationChange: (String) -> Unit,
     onBioChange: (String) -> Unit,
+    onAvatarSelected: (Uri) -> Unit,
     onSave: () -> Unit,
 ) {
+    val photoPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri -> uri?.let(onAvatarSelected) }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -156,11 +171,20 @@ private fun EditProfileForm(
             .padding(horizontal = 16.dp, vertical = 16.dp),
     ) {
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            AvatarPreview(initial = state.name.firstOrNull()?.uppercase() ?: "?")
+            AvatarPreview(
+                initial = state.name.firstOrNull()?.uppercase() ?: "?",
+                avatarUrl = state.avatarUrl,
+                isUploading = state.isUploadingPhoto,
+                onClick = {
+                    photoPicker.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                    )
+                },
+            )
         }
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = "Photo upload coming soon",
+            text = "Tap the photo to change it",
             fontSize = 11.sp,
             color = Grey57,
             textAlign = TextAlign.Center,
@@ -200,23 +224,66 @@ private fun EditProfileForm(
 }
 
 @Composable
-private fun AvatarPreview(initial: String) {
+private fun AvatarPreview(
+    initial: String,
+    avatarUrl: String?,
+    isUploading: Boolean,
+    onClick: () -> Unit,
+) {
     Box(
         modifier = Modifier
             .size(84.dp)
             .clip(CircleShape)
             .background(Grey97)
-            .padding(4.dp)
-            .clip(CircleShape)
-            .background(VinderAzure),
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = initial,
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
-        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(4.dp)
+                .clip(CircleShape)
+                .background(VinderAzure),
+            contentAlignment = Alignment.Center,
+        ) {
+            when {
+                isUploading -> CircularProgressIndicator(
+                    color = Color.White,
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(24.dp),
+                )
+                avatarUrl != null -> AsyncImage(
+                    model = avatarUrl,
+                    contentDescription = "Profile photo",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                else -> Text(
+                    text = initial,
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                )
+            }
+        }
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .size(26.dp)
+                .clip(CircleShape)
+                .background(Color.White)
+                .padding(2.dp)
+                .clip(CircleShape)
+                .background(VinderAzure),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.PhotoCamera,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(14.dp),
+            )
+        }
     }
 }
 

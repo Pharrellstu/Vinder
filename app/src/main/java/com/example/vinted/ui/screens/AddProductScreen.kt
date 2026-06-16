@@ -27,9 +27,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -75,10 +77,14 @@ import com.example.vinted.ui.models.AddProductUiState
 import com.example.vinted.ui.models.AddProductViewModel
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
@@ -371,22 +377,73 @@ private fun PhotosStep(
         Text("Add photos", fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = Grey11)
         Spacer(Modifier.height(4.dp))
         Text(
-            "Up to $MAX_PHOTOS photos. First photo is your cover image.",
+            "Up to $MAX_PHOTOS photos. Long-press and drag to reorder — the first photo is your cover.",
             fontSize = 13.sp,
             color = Grey57,
         )
         Spacer(Modifier.height(16.dp))
 
+        val gridState = rememberLazyGridState()
+        var draggingIndex by remember { mutableStateOf<Int?>(null) }
+        var dragOffset by remember { mutableStateOf(Offset.Zero) }
+        fun itemIndexAt(pos: Offset): Int? =
+            gridState.layoutInfo.visibleItemsInfo.firstOrNull { info ->
+                pos.x >= info.offset.x && pos.x <= info.offset.x + info.size.width &&
+                    pos.y >= info.offset.y && pos.y <= info.offset.y + info.size.height
+            }?.index
+
         LazyVerticalGrid(
+            state = gridState,
             columns = GridCells.Fixed(3),
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .pointerInput(selectedPhotos.size) {
+                    detectDragGesturesAfterLongPress(
+                        onDragStart = { offset ->
+                            val idx = itemIndexAt(offset)
+                            if (idx != null && idx < selectedPhotos.size) {
+                                draggingIndex = idx
+                                dragOffset = offset
+                            }
+                        },
+                        onDrag = { change, amount ->
+                            change.consume()
+                            dragOffset += amount
+                            val from = draggingIndex ?: return@detectDragGesturesAfterLongPress
+                            val to = itemIndexAt(dragOffset)
+                            if (to != null && to != from && to < selectedPhotos.size) {
+                                selectedPhotos.add(to, selectedPhotos.removeAt(from))
+                                draggingIndex = to
+                            }
+                        },
+                        onDragEnd = { draggingIndex = null },
+                        onDragCancel = { draggingIndex = null },
+                    )
+                },
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            itemsIndexed(selectedPhotos) { index, uri ->
-                PhotoTile(uri = uri, isCover = index == 0) {
-                    selectedPhotos.removeAt(index)
-                }
+            itemsIndexed(selectedPhotos, key = { _, uri -> uri.toString() }) { index, uri ->
+                val dragging = index == draggingIndex
+                PhotoTile(
+                    uri = uri,
+                    isCover = index == 0,
+                    modifier = Modifier
+                        .zIndex(if (dragging) 1f else 0f)
+                        .graphicsLayer {
+                            if (dragging) {
+                                val info = gridState.layoutInfo.visibleItemsInfo
+                                    .firstOrNull { it.index == index }
+                                if (info != null) {
+                                    translationX = dragOffset.x - (info.offset.x + info.size.width / 2f)
+                                    translationY = dragOffset.y - (info.offset.y + info.size.height / 2f)
+                                }
+                                scaleX = 1.05f
+                                scaleY = 1.05f
+                            }
+                        },
+                    onRemove = { selectedPhotos.removeAt(index) },
+                )
             }
             if (selectedPhotos.size < MAX_PHOTOS) {
                 item {
@@ -406,9 +463,9 @@ private fun PhotosStep(
 }
 
 @Composable
-private fun PhotoTile(uri: Uri, isCover: Boolean, onRemove: () -> Unit) {
+private fun PhotoTile(uri: Uri, isCover: Boolean, modifier: Modifier = Modifier, onRemove: () -> Unit) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .aspectRatio(1f)
             .clip(RoundedCornerShape(10.dp))
             .border(

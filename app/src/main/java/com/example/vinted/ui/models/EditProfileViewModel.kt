@@ -1,16 +1,20 @@
 package com.example.vinted.ui.models
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.vinted.data.AccountRepository
 import com.example.vinted.data.IAccountRepository
 import com.example.vinted.data.SessionManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 sealed class EditProfileUiState {
     object Loading : EditProfileUiState()
@@ -18,7 +22,9 @@ sealed class EditProfileUiState {
         val name: String,
         val location: String,
         val bio: String,
+        val avatarUrl: String? = null,
         val isSaving: Boolean = false,
+        val isUploadingPhoto: Boolean = false,
         val errorMessage: String? = null,
     ) : EditProfileUiState()
     data class Error(val message: String) : EditProfileUiState()
@@ -55,6 +61,7 @@ class EditProfileViewModel(
                     name = profile.handle,
                     location = profile.location,
                     bio = profile.bio,
+                    avatarUrl = profile.avatarUrl,
                 )
             }.onFailure {
                 _uiState.value = EditProfileUiState.Error(it.message ?: "Failed to load profile")
@@ -101,6 +108,32 @@ class EditProfileViewModel(
                     isSaving = false,
                     errorMessage = it.message ?: "Failed to save changes",
                 )
+            }
+        }
+    }
+
+    fun uploadAvatar(context: Context, uri: Uri) {
+        val current = _uiState.value as? EditProfileUiState.Editing ?: return
+        if (current.isUploadingPhoto || resolvedId == -1) return
+        _uiState.value = current.copy(isUploadingPhoto = true, errorMessage = null)
+        viewModelScope.launch {
+            runCatching {
+                val bytes = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.readBytes()
+                        ?: error("Couldn't read the selected image")
+                }
+                repository.updateAvatar(resolvedId, bytes)
+            }.onSuccess { url ->
+                (_uiState.value as? EditProfileUiState.Editing)?.let {
+                    _uiState.value = it.copy(avatarUrl = url, isUploadingPhoto = false)
+                }
+            }.onFailure { err ->
+                (_uiState.value as? EditProfileUiState.Editing)?.let {
+                    _uiState.value = it.copy(
+                        isUploadingPhoto = false,
+                        errorMessage = err.message ?: "Failed to upload photo",
+                    )
+                }
             }
         }
     }

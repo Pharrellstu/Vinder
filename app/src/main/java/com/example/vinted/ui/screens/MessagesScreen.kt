@@ -32,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -72,6 +73,9 @@ fun MessagesScreen(
     viewModel: MessagesViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // Reload on (re)entry so read state persists when returning to the inbox.
+    LaunchedEffect(Unit) { viewModel.load() }
 
     when (val state = uiState) {
         is MessagesUiState.Loading -> {
@@ -145,6 +149,7 @@ fun MessagesScreen(
                                     if (conversation.unreadCount > 0) {
                                         conversations[index] = conversation.copy(unreadCount = 0)
                                     }
+                                    viewModel.markRead(conversation.dialogueId)
                                     openConversationId = conversation.id
                                 },
                             )
