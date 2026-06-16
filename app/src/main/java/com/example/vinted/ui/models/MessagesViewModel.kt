@@ -41,4 +41,13 @@ class MessagesViewModel(
              .onFailure { _uiState.value = MessagesUiState.Error(it.message ?: "Failed to load messages") }
         }
     }
+
+    /** Persist that the open conversation's incoming messages have been read. */
+    fun markRead(dialogueId: Int) {
+        val accountId = SessionManager.currentAccountId
+        if (accountId == -1) return
+        viewModelScope.launch {
+            runCatching { repository.markRead(dialogueId, accountId) }
+        }
+    }
 }

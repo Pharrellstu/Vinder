@@ -13,4 +13,5 @@ data class UserProfile(
     val listedCount: Int,
     val soldCount: Int,
     val followerCount: Int,
+    val avatarUrl: String? = null,
 )
