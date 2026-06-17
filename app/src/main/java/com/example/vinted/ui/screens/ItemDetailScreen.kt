@@ -45,6 +45,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,14 +55,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil3.compose.AsyncImage
 import com.example.vinted.ui.components.DiscountBadge
 import com.example.vinted.ui.components.SellerProfileCard
+import com.example.vinted.ui.models.ItemDetailUiState
+import com.example.vinted.ui.models.ItemDetailViewModel
+import com.example.vinted.ui.models.ItemDetailViewModelFactory
 import com.example.vinted.ui.models.Product
 import com.example.vinted.ui.models.Seller
 import com.example.vinted.ui.theme.Grey11
@@ -71,29 +78,25 @@ import com.example.vinted.ui.theme.Grey91
 import com.example.vinted.ui.theme.Grey95
 import com.example.vinted.ui.theme.Grey97
 import com.example.vinted.ui.theme.VinderAzure
-import com.example.vinted.ui.theme.VinderAzureLight
 import com.example.vinted.ui.theme.VintedTheme
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 private const val SHIPPING_FEE = 3.95
 private const val BUYER_PROTECTION_FEE = 0.90
-private const val GALLERY_PHOTO_COUNT = 4
 
-/**
- * Item detail page. Front-end only — Buy Now and Make an Offer open confirmation
- * sheets but perform no backend calls (ADV-52 / ADV-53), and the photo gallery
- * uses placeholders until real listing images exist (ADV-50).
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ItemDetailScreen(
     product: Product,
-    seller: Seller,
-    description: String = "",
     onBack: () -> Unit = {},
     onViewSellerProfile: () -> Unit = {},
+    viewModel: ItemDetailViewModel = viewModel(
+        key = "item-${product.id}",
+        factory = ItemDetailViewModelFactory(product.id.toInt(), product.sellerId),
+    ),
 ) {
+    val detailState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var isFavourite by remember { mutableStateOf(false) }
@@ -103,6 +106,10 @@ fun ItemDetailScreen(
     fun notify(message: String) {
         scope.launch { snackbarHostState.showSnackbar(message) }
     }
+
+    val photoUrls = (detailState as? ItemDetailUiState.Success)?.photoUrls ?: emptyList()
+    val description = (detailState as? ItemDetailUiState.Success)?.description ?: ""
+    val seller = (detailState as? ItemDetailUiState.Success)?.seller
 
     Scaffold(
         containerColor = Grey97,
@@ -130,7 +137,7 @@ fun ItemDetailScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
         ) {
-            ItemPhotoGallery(photoCount = GALLERY_PHOTO_COUNT)
+            ItemPhotoGallery(photoUrls = photoUrls)
             Column(modifier = Modifier.padding(16.dp)) {
                 ItemPriceRow(product = product)
                 Spacer(modifier = Modifier.height(6.dp))
@@ -158,11 +165,26 @@ fun ItemDetailScreen(
                 Spacer(modifier = Modifier.height(20.dp))
                 SectionTitle(text = "Seller")
                 Spacer(modifier = Modifier.height(8.dp))
-                SellerProfileCard(
-                    seller = seller,
-                    onViewProfile = onViewSellerProfile,
-                    onMessageSeller = { notify("Messaging — coming soon") },
-                )
+                if (seller != null) {
+                    SellerProfileCard(
+                        seller = seller,
+                        onViewProfile = onViewSellerProfile,
+                        onMessageSeller = { notify("Messaging — coming soon") },
+                    )
+                } else if (detailState is ItemDetailUiState.Error) {
+                    Text(
+                        text = (detailState as ItemDetailUiState.Error).message,
+                        color = Grey57,
+                        fontSize = 13.sp,
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(72.dp)
+                            .background(Grey95, RoundedCornerShape(12.dp)),
+                    )
+                }
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
@@ -174,7 +196,7 @@ fun ItemDetailScreen(
             onDismiss = { showOfferSheet = false },
             onSubmit = { amount ->
                 showOfferSheet = false
-                notify("Offer of €$amount sent to ${seller.name}")
+                notify("Offer of €$amount sent to ${seller?.name ?: product.sellerName}")
             },
         )
     }
@@ -220,9 +242,9 @@ private fun ItemDetailTopBar(
 }
 
 @Composable
-private fun ItemPhotoGallery(photoCount: Int) {
-    // TODO(ADV-50): swap placeholders for real listing images once the model carries them.
-    val pagerState = rememberPagerState(pageCount = { photoCount })
+private fun ItemPhotoGallery(photoUrls: List<String>) {
+    val pageCount = photoUrls.size.coerceAtLeast(1)
+    val pagerState = rememberPagerState(pageCount = { pageCount })
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -230,42 +252,54 @@ private fun ItemPhotoGallery(photoCount: Int) {
             .background(Grey91),
     ) {
         HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(if (page % 2 == 0) Grey91 else VinderAzureLight),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Image,
+            val url = photoUrls.getOrNull(page)
+            if (url != null) {
+                AsyncImage(
+                    model = url,
                     contentDescription = null,
-                    tint = Grey57,
-                    modifier = Modifier.size(48.dp),
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
                 )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Grey91),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Image,
+                        contentDescription = null,
+                        tint = Grey57,
+                        modifier = Modifier.size(48.dp),
+                    )
+                }
             }
         }
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(12.dp)
-                .clip(RoundedCornerShape(999.dp))
-                .background(Color.Black.copy(alpha = 0.45f))
-                .padding(horizontal = 8.dp, vertical = 3.dp),
-        ) {
-            Text(
-                text = "${pagerState.currentPage + 1} / $photoCount",
-                color = Color.White,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
+        if (photoUrls.size > 1) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(12.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(Color.Black.copy(alpha = 0.45f))
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
+            ) {
+                Text(
+                    text = "${pagerState.currentPage + 1} / ${photoUrls.size}",
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+            PagerDots(
+                count = photoUrls.size,
+                current = pagerState.currentPage,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 12.dp),
             )
         }
-        PagerDots(
-            count = photoCount,
-            current = pagerState.currentPage,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 12.dp),
-        )
     }
 }
 
@@ -522,7 +556,7 @@ fun ItemDetailScreenPreview() {
     VintedTheme {
         ItemDetailScreen(
             product = Product(
-                id = "g7",
+                id = "1",
                 name = "Vintage denim jacket",
                 price = 45f,
                 originalPrice = 90f,
@@ -532,19 +566,8 @@ fun ItemDetailScreenPreview() {
                 sellerInitial = "C",
                 sellerName = "chloe.p",
                 rating = 4.9f,
+                sellerId = 1,
             ),
-            seller = Seller(
-                initial = "C",
-                name = "chloe.p",
-                rating = 4.9f,
-                reviewCount = 213,
-                itemCount = 87,
-                location = "Amsterdam",
-                memberSince = "2020",
-                isVerified = true,
-            ),
-            description = "Classic vintage Levi's denim jacket in great condition. " +
-                "Barely worn, no flaws, true to size L. From a smoke-free home.",
         )
     }
 }
