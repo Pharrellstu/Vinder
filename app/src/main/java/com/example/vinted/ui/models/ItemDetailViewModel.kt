@@ -6,7 +6,10 @@ import androidx.lifecycle.viewModelScope
 import com.example.vinted.data.AccountRepository
 import com.example.vinted.data.IAccountRepository
 import com.example.vinted.data.IItemRepository
+import com.example.vinted.data.IPurchaseRepository
 import com.example.vinted.data.ItemRepository
+import com.example.vinted.data.PurchaseRepository
+import com.example.vinted.data.SessionManager
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,13 +31,48 @@ class ItemDetailViewModel(
     private val sellerId: Int,
     private val itemRepo: IItemRepository = ItemRepository(),
     private val accountRepo: IAccountRepository = AccountRepository(),
+    private val purchaseRepo: IPurchaseRepository = PurchaseRepository(),
 ) : ViewModel() {
+
+    companion object {
+        const val SHIPPING_FEE = 3.95
+        const val BUYER_PROTECTION_FEE = 0.90
+    }
 
     private val _uiState = MutableStateFlow<ItemDetailUiState>(ItemDetailUiState.Loading)
     val uiState: StateFlow<ItemDetailUiState> = _uiState.asStateFlow()
 
     init {
         load()
+    }
+
+    fun confirmBuy(
+        sellerId: Int,
+        itemPrice: Double,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        val buyerId = SessionManager.currentAccountId
+        viewModelScope.launch {
+            runCatching {
+                purchaseRepo.createPurchase(itemId, buyerId, sellerId, itemPrice, SHIPPING_FEE, BUYER_PROTECTION_FEE)
+                itemRepo.markAsSold(itemId)
+            }.onSuccess { onSuccess() }
+             .onFailure { onError(it.message ?: "Purchase failed") }
+        }
+    }
+
+    fun submitOffer(
+        offerPrice: Double,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        val creatorId = SessionManager.currentAccountId
+        viewModelScope.launch {
+            runCatching { itemRepo.createOffer(itemId, creatorId, offerPrice) }
+                .onSuccess { onSuccess() }
+                .onFailure { onError(it.message ?: "Offer failed") }
+        }
     }
 
     private fun load() {

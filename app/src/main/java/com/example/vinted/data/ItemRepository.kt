@@ -17,6 +17,8 @@ interface IItemRepository {
     suspend fun getConditionId(conditionName: String): Int
     suspend fun getItemPhotos(itemId: Int): List<String>
     suspend fun getItemDescription(itemId: Int): String
+    suspend fun markAsSold(itemId: Int)
+    suspend fun createOffer(itemId: Int, creatorId: Int, offerPrice: Double)
     suspend fun insertItem(
         sellerId: Int,
         categoryId: Int,
@@ -107,6 +109,23 @@ class ItemRepository : IItemRepository {
             .select { filter { eq("item_id", itemId) } }
             .decodeSingle<ItemEntity>()
             .description
+    }
+
+    override suspend fun markAsSold(itemId: Int) {
+        client.from("item").update(mapOf("is_sold" to true)) {
+            filter { eq("item_id", itemId) }
+        }
+    }
+
+    override suspend fun createOffer(itemId: Int, creatorId: Int, offerPrice: Double) {
+        client.from("item_offer").insert(
+            mapOf(
+                "item_id" to itemId,
+                "offer_creator_id" to creatorId,
+                "offer_price" to offerPrice,
+                "offer_status_id" to 1,
+            )
+        )
     }
 
     override suspend fun getFeedItems(): List<Product> {
