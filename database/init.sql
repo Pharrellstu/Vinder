@@ -97,7 +97,19 @@ CREATE TABLE IF NOT EXISTS item_offer (
     created_at         TIMESTAMPTZ      NOT NULL DEFAULT NOW()
 );
 
--- chat related tables 
+CREATE TABLE IF NOT EXISTS purchase (
+    purchase_id    SERIAL PRIMARY KEY,
+    item_id        INT NOT NULL REFERENCES item (item_id),
+    buyer_id       INT NOT NULL REFERENCES account (account_id),
+    seller_id      INT NOT NULL REFERENCES account (account_id),
+    item_price     NUMERIC(10,2) NOT NULL,
+    shipping_fee   NUMERIC(10,2) NOT NULL DEFAULT 3.95,
+    protection_fee NUMERIC(10,2) NOT NULL DEFAULT 0.90,
+    total_amount   NUMERIC(10,2) NOT NULL,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- chat related tables
 
 CREATE TABLE IF NOT EXISTS dialogue (
     dialogue_id          SERIAL PRIMARY KEY,
