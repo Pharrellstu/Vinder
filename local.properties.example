@@ -19,5 +19,5 @@ sdk.dir=/path/to/Android/Sdk
 #
 # emulator → always use 10.0.2.2, never localhost
 
-supabase.url=http://10.0.2.2:8000
-supabase.anon.key=your-anon-key-here
+supabase.url=https://ismxghgozvuonkgloguk.supabase.co
+supabase.anon.key=<your-anon-key-from-project-settings>
