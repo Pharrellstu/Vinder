@@ -30,7 +30,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -78,7 +77,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -96,8 +94,6 @@ import com.example.vinted.ui.theme.VinderAzure
 import com.example.vinted.ui.theme.VinderAzureLight
 import com.example.vinted.ui.theme.VintedTheme
 import kotlinx.coroutines.launch
-import sh.calvin.reorderable.ReorderableItem
-import sh.calvin.reorderable.rememberReorderableLazyGridState
 
 private val CATEGORIES = listOf("Clothing", "Electronics", "Books", "Home & Garden", "Sports", "Toys", "Vehicles", "Other")
 private val CONDITIONS = listOf("New", "Like New", "Good", "Fair")
@@ -375,44 +371,25 @@ private fun PhotosStep(
         Text("Add photos", fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = Grey11)
         Spacer(Modifier.height(4.dp))
         Text(
-            "Up to $MAX_PHOTOS photos. Long-press and drag to reorder — the first photo is your cover.",
+            "Up to $MAX_PHOTOS photos. First photo is your cover image.",
             fontSize = 13.sp,
             color = Grey57,
         )
         Spacer(Modifier.height(16.dp))
 
-        val gridState = rememberLazyGridState()
-        val reorderState = rememberReorderableLazyGridState(gridState) { from, to ->
-            if (from.index in selectedPhotos.indices && to.index in selectedPhotos.indices) {
-                selectedPhotos.add(to.index, selectedPhotos.removeAt(from.index))
-            }
-        }
-
         LazyVerticalGrid(
-            state = gridState,
             columns = GridCells.Fixed(3),
             modifier = Modifier.weight(1f),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            itemsIndexed(selectedPhotos, key = { _, uri -> uri.toString() }) { index, uri ->
-                ReorderableItem(reorderState, key = uri.toString()) { isDragging ->
-                    PhotoTile(
-                        uri = uri,
-                        isCover = index == 0,
-                        modifier = Modifier
-                            .longPressDraggableHandle()
-                            .graphicsLayer {
-                                val scale = if (isDragging) 1.05f else 1f
-                                scaleX = scale
-                                scaleY = scale
-                            },
-                        onRemove = { selectedPhotos.removeAt(index) },
-                    )
+            itemsIndexed(selectedPhotos) { index, uri ->
+                PhotoTile(uri = uri, isCover = index == 0) {
+                    selectedPhotos.removeAt(index)
                 }
             }
             if (selectedPhotos.size < MAX_PHOTOS) {
-                item(key = "add_photo") {
+                item {
                     AddPhotoTile(onClick = { showSourceDialog = true })
                 }
             }
