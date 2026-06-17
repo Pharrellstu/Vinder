@@ -5,6 +5,8 @@ import com.example.vinted.data.dto.ItemCategoryEntity
 import com.example.vinted.data.dto.ItemConditionEntity
 import com.example.vinted.data.dto.ItemEntity
 import com.example.vinted.data.dto.ItemPhotoEntity
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import com.example.vinted.ui.initialisers.SupabaseClientInitialiser
 import com.example.vinted.ui.models.Product
 import io.github.jan.supabase.postgrest.from
@@ -31,6 +33,14 @@ interface IItemRepository {
     suspend fun uploadPhoto(itemId: Int, index: Int, bytes: ByteArray): String
     suspend fun insertItemPhoto(itemId: Int, photoUrl: String)
 }
+
+@Serializable
+private data class OfferInsert(
+    @SerialName("item_id") val itemId: Int,
+    @SerialName("offer_creator_id") val offerCreatorId: Int,
+    @SerialName("offer_price") val offerPrice: Double,
+    @SerialName("offer_status_id") val offerStatusId: Int = 1,
+)
 
 class ItemRepository : IItemRepository {
 
@@ -118,14 +128,7 @@ class ItemRepository : IItemRepository {
     }
 
     override suspend fun createOffer(itemId: Int, creatorId: Int, offerPrice: Double) {
-        client.from("item_offer").insert(
-            mapOf(
-                "item_id" to itemId,
-                "offer_creator_id" to creatorId,
-                "offer_price" to offerPrice,
-                "offer_status_id" to 1,
-            )
-        )
+        client.from("item_offer").insert(OfferInsert(itemId, creatorId, offerPrice))
     }
 
     override suspend fun getFeedItems(): List<Product> {
