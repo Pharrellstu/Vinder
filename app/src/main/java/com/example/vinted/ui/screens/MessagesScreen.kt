@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
+import com.example.vinted.data.InboxBadge
 import com.example.vinted.ui.components.BottomNavBar
 import com.example.vinted.ui.models.Conversation
 import com.example.vinted.ui.models.MessagesUiState
@@ -129,7 +130,6 @@ fun MessagesScreen(
                     BottomNavBar(
                         selectedIndex = 3,
                         onItemSelected = onTabSelected,
-                        inboxUnreadCount = conversations.sumOf { it.unreadCount },
                     )
                 },
             ) { padding ->
@@ -149,6 +149,7 @@ fun MessagesScreen(
                                     if (conversation.unreadCount > 0) {
                                         conversations[index] = conversation.copy(unreadCount = 0)
                                     }
+                                    InboxBadge.unread.value = conversations.sumOf { it.unreadCount }
                                     viewModel.markRead(conversation.dialogueId)
                                     openConversationId = conversation.id
                                 },

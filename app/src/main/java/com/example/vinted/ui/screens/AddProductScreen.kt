@@ -27,7 +27,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
@@ -77,14 +76,11 @@ import com.example.vinted.ui.models.AddProductUiState
 import com.example.vinted.ui.models.AddProductViewModel
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
@@ -100,6 +96,8 @@ import com.example.vinted.ui.theme.VinderAzure
 import com.example.vinted.ui.theme.VinderAzureLight
 import com.example.vinted.ui.theme.VintedTheme
 import kotlinx.coroutines.launch
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyGridState
 
 private val CATEGORIES = listOf("Clothing", "Electronics", "Books", "Home & Garden", "Sports", "Toys", "Vehicles", "Other")
 private val CONDITIONS = listOf("New", "Like New", "Good", "Fair")
@@ -384,69 +382,37 @@ private fun PhotosStep(
         Spacer(Modifier.height(16.dp))
 
         val gridState = rememberLazyGridState()
-        var draggingIndex by remember { mutableStateOf<Int?>(null) }
-        var dragOffset by remember { mutableStateOf(Offset.Zero) }
-        fun itemIndexAt(pos: Offset): Int? =
-            gridState.layoutInfo.visibleItemsInfo.firstOrNull { info ->
-                pos.x >= info.offset.x && pos.x <= info.offset.x + info.size.width &&
-                    pos.y >= info.offset.y && pos.y <= info.offset.y + info.size.height
-            }?.index
+        val reorderState = rememberReorderableLazyGridState(gridState) { from, to ->
+            if (from.index in selectedPhotos.indices && to.index in selectedPhotos.indices) {
+                selectedPhotos.add(to.index, selectedPhotos.removeAt(from.index))
+            }
+        }
 
         LazyVerticalGrid(
             state = gridState,
             columns = GridCells.Fixed(3),
-            modifier = Modifier
-                .weight(1f)
-                .pointerInput(selectedPhotos.size) {
-                    detectDragGesturesAfterLongPress(
-                        onDragStart = { offset ->
-                            val idx = itemIndexAt(offset)
-                            if (idx != null && idx < selectedPhotos.size) {
-                                draggingIndex = idx
-                                dragOffset = offset
-                            }
-                        },
-                        onDrag = { change, amount ->
-                            change.consume()
-                            dragOffset += amount
-                            val from = draggingIndex ?: return@detectDragGesturesAfterLongPress
-                            val to = itemIndexAt(dragOffset)
-                            if (to != null && to != from && to < selectedPhotos.size) {
-                                selectedPhotos.add(to, selectedPhotos.removeAt(from))
-                                draggingIndex = to
-                            }
-                        },
-                        onDragEnd = { draggingIndex = null },
-                        onDragCancel = { draggingIndex = null },
-                    )
-                },
+            modifier = Modifier.weight(1f),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             itemsIndexed(selectedPhotos, key = { _, uri -> uri.toString() }) { index, uri ->
-                val dragging = index == draggingIndex
-                PhotoTile(
-                    uri = uri,
-                    isCover = index == 0,
-                    modifier = Modifier
-                        .zIndex(if (dragging) 1f else 0f)
-                        .graphicsLayer {
-                            if (dragging) {
-                                val info = gridState.layoutInfo.visibleItemsInfo
-                                    .firstOrNull { it.index == index }
-                                if (info != null) {
-                                    translationX = dragOffset.x - (info.offset.x + info.size.width / 2f)
-                                    translationY = dragOffset.y - (info.offset.y + info.size.height / 2f)
-                                }
-                                scaleX = 1.05f
-                                scaleY = 1.05f
-                            }
-                        },
-                    onRemove = { selectedPhotos.removeAt(index) },
-                )
+                ReorderableItem(reorderState, key = uri.toString()) { isDragging ->
+                    PhotoTile(
+                        uri = uri,
+                        isCover = index == 0,
+                        modifier = Modifier
+                            .longPressDraggableHandle()
+                            .graphicsLayer {
+                                val scale = if (isDragging) 1.05f else 1f
+                                scaleX = scale
+                                scaleY = scale
+                            },
+                        onRemove = { selectedPhotos.removeAt(index) },
+                    )
+                }
             }
             if (selectedPhotos.size < MAX_PHOTOS) {
-                item {
+                item(key = "add_photo") {
                     AddPhotoTile(onClick = { showSourceDialog = true })
                 }
             }

@@ -6,12 +6,16 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import com.example.vinted.data.DialogueRepository
+import com.example.vinted.data.InboxBadge
+import com.example.vinted.data.SessionManager
 import com.example.vinted.ui.models.Product
 import com.example.vinted.ui.models.Seller
 import com.example.vinted.ui.screens.AddProductScreen
@@ -73,6 +77,15 @@ private fun MainTabs() {
     var showEditProfile by rememberSaveable { mutableStateOf(false) }
     // Bumped after a profile edit so the Profile tab remounts and reloads fresh data.
     var profileReloadToken by rememberSaveable { mutableStateOf(0) }
+
+    // Fetch the inbox unread count once on entry so the bottom-nav badge is
+    // visible from every tab, not just after opening the Messages screen.
+    LaunchedEffect(Unit) {
+        val accountId = SessionManager.currentAccountId
+        if (accountId != -1) {
+            runCatching { InboxBadge.unread.value = DialogueRepository().getUnreadCount(accountId) }
+        }
+    }
 
     // The "+" FAB (index 2) opens the Add Product flow as a modal over the current tab.
     val onTabSelected: (Int) -> Unit = { index ->
