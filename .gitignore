@@ -9,3 +9,7 @@ local.properties
 .cxx
 /.idea/
 ui.xml
+
+# External Supabase tooling (not part of the Android app; contains secrets)
+/supabase/
+/supabase-project/
