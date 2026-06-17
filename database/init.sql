@@ -103,6 +103,7 @@ CREATE TABLE IF NOT EXISTS dialogue (
     dialogue_id          SERIAL PRIMARY KEY,
     dialogue_creator_id  INT NOT NULL REFERENCES account (account_id) ON DELETE CASCADE,
     dialogue_receiver_id INT NOT NULL REFERENCES account (account_id) ON DELETE CASCADE,
+    item_id              INT REFERENCES item (item_id) ON DELETE SET NULL,
     UNIQUE (dialogue_creator_id, dialogue_receiver_id)
 );
 

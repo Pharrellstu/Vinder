@@ -4,6 +4,7 @@ import com.example.vinted.data.dto.AccountEntity
 import com.example.vinted.data.dto.ItemCategoryEntity
 import com.example.vinted.data.dto.ItemConditionEntity
 import com.example.vinted.data.dto.ItemEntity
+import com.example.vinted.data.dto.ItemPhotoEntity
 import com.example.vinted.ui.initialisers.SupabaseClientInitialiser
 import com.example.vinted.ui.models.Product
 import io.github.jan.supabase.postgrest.from
@@ -14,6 +15,8 @@ interface IItemRepository {
     suspend fun getCategories(): List<String>
     suspend fun getCategoryId(categoryName: String): Int
     suspend fun getConditionId(conditionName: String): Int
+    suspend fun getItemPhotos(itemId: Int): List<String>
+    suspend fun getItemDescription(itemId: Int): String
     suspend fun insertItem(
         sellerId: Int,
         categoryId: Int,
@@ -92,6 +95,20 @@ class ItemRepository : IItemRepository {
         )
     }
 
+    override suspend fun getItemPhotos(itemId: Int): List<String> {
+        return client.from("item_photo")
+            .select { filter { eq("item_id", itemId) } }
+            .decodeList<ItemPhotoEntity>()
+            .map { it.photoUrl }
+    }
+
+    override suspend fun getItemDescription(itemId: Int): String {
+        return client.from("item")
+            .select { filter { eq("item_id", itemId) } }
+            .decodeSingle<ItemEntity>()
+            .description
+    }
+
     override suspend fun getFeedItems(): List<Product> {
         val items = client.from("item")
             .select { filter { eq("is_listed", true) } }
@@ -122,6 +139,7 @@ class ItemRepository : IItemRepository {
                 sellerInitial = seller?.accountName?.firstOrNull()?.uppercase() ?: "?",
                 sellerName = seller?.accountName ?: "unknown",
                 rating = 0f,
+                sellerId = item.sellerId,
             )
         }
     }

@@ -15,6 +15,7 @@ import kotlinx.serialization.json.put
 
 interface IAuthRepository {
     suspend fun login(email: String, password: String): Result<Unit>
+    suspend fun logout(): Result<Unit>
     suspend fun register(nickname: String, email: String, password: String): Result<Unit>
     suspend fun isNicknameTaken(nickname: String): Result<Boolean>
     suspend fun sendPasswordResetEmail(email: String): Result<Unit>
@@ -29,21 +30,14 @@ open class AuthRepository : IAuthRepository {
 
     override suspend fun login(email: String, password: String): Result<Unit> =
         runCatching {
-            // Step 1: authenticate with GoTrue. A wrong password fails here and
-            // surfaces as "invalid credentials" — never reaching the profile fetch.
+
             supabase.auth.signInWith(Email) {
                 this.email = email
                 this.password = password
             }
 
-            // Step 2: load the app-level profile row. Use the authenticated
-            // session's email (canonical, server-side) rather than the raw input.
             val authenticatedEmail = supabase.auth.currentSessionOrNull()?.user?.email ?: email
 
-            // decodeSingleOrNull (not decodeSingle) so that a missing or
-            // RLS-filtered row yields null instead of throwing a cryptic
-            // "list is empty" error. Auth has already succeeded at this point,
-            // so an absent profile row must not fail the whole login.
             val account = supabase.from("account")
                 .select { filter { eq("account_email", authenticatedEmail) } }
                 .decodeSingleOrNull<AccountEntity>()
@@ -91,6 +85,11 @@ open class AuthRepository : IAuthRepository {
             }
             Unit
         }.logError("updatePassword")
+
+    override suspend fun logout(): Result<Unit> = runCatching {
+        SupabaseClientInitialiser.client.auth.signOut()
+        SessionManager.clear()
+    }
 
     override fun currentSession(): UserSession? =
         supabase.auth.currentSessionOrNull()

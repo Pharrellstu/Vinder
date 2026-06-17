@@ -2,16 +2,8 @@ package com.example.vinted.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -42,13 +34,15 @@ private val cardShape = RoundedCornerShape(10.dp)
 @Composable
 fun GridProductCard(
     product: Product,
+    onClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier
             .clip(cardShape)
             .background(Color.White)
-            .border(1.dp, Grey91, cardShape),
+            .border(1.dp, Grey91, cardShape)
+            .clickable(onClick = onClick),
     ) {
         ProductImageSection(product = product)
         ProductInfoSection(product = product)

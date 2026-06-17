@@ -24,6 +24,7 @@ class AuthFlowTest {
         private val nicknameTaken: Boolean = false
     ) : IAuthRepository {
         override suspend fun login(email: String, password: String): Result<Unit> = result()
+        override suspend fun logout(): Result<Unit> = result()
         override suspend fun register(nickname: String, email: String, password: String): Result<Unit> = result()
         override suspend fun isNicknameTaken(nickname: String): Result<Boolean> =
             if (shouldFail) Result.failure(IllegalStateException("fake failure"))
@@ -147,5 +148,4 @@ class AuthFlowTest {
         // Assert
         composeRule.onNodeWithText(RegistrationViewModel.NICKNAME_TAKEN_MESSAGE).assertIsDisplayed()
     }
-
 }
