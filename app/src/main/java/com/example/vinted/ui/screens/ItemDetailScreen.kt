@@ -82,8 +82,8 @@ import com.example.vinted.ui.theme.VintedTheme
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-private const val SHIPPING_FEE = 3.95
-private const val BUYER_PROTECTION_FEE = 0.90
+private val SHIPPING_FEE = ItemDetailViewModel.SHIPPING_FEE
+private val BUYER_PROTECTION_FEE = ItemDetailViewModel.BUYER_PROTECTION_FEE
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -196,7 +196,11 @@ fun ItemDetailScreen(
             onDismiss = { showOfferSheet = false },
             onSubmit = { amount ->
                 showOfferSheet = false
-                notify("Offer of €$amount sent to ${seller?.name ?: product.sellerName}")
+                viewModel.submitOffer(
+                    offerPrice = amount.toDouble(),
+                    onSuccess = { notify("Offer of €$amount sent!") },
+                    onError = { notify(it) },
+                )
             },
         )
     }
@@ -206,7 +210,12 @@ fun ItemDetailScreen(
             onDismiss = { showBuySheet = false },
             onConfirm = {
                 showBuySheet = false
-                notify("Purchase confirmed — thank you!")
+                viewModel.confirmBuy(
+                    sellerId = product.sellerId,
+                    itemPrice = product.price.toDouble(),
+                    onSuccess = { onBack() },
+                    onError = { notify(it) },
+                )
             },
         )
     }
@@ -498,13 +507,6 @@ private fun BuyNowSheet(product: Product, onDismiss: () -> Unit, onConfirm: () -
             SheetPrimaryButton(text = "Confirm purchase", enabled = true) {
                 onConfirm()
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Demo only — no real payment is taken.",
-                fontSize = 11.sp,
-                color = Grey57,
-                modifier = Modifier.fillMaxWidth(),
-            )
         }
     }
 }
