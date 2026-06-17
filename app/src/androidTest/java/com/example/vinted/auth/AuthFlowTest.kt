@@ -5,7 +5,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
-import com.example.vinted.ui.screens.AuthenticateAccountScreen
+import com.example.vinted.ui.models.RegistrationViewModel
 import com.example.vinted.ui.screens.LoginScreen
 import com.example.vinted.ui.models.LoginViewModel
 import com.example.vinted.ui.screens.RegisterScreen
@@ -19,10 +19,18 @@ class AuthFlowTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    private class FakeAuthRepository(private val shouldFail: Boolean = false) : IAuthRepository {
+    private class FakeAuthRepository(
+        private val shouldFail: Boolean = false,
+        private val nicknameTaken: Boolean = false
+    ) : IAuthRepository {
         override suspend fun login(email: String, password: String): Result<Unit> = result()
-        override suspend fun register(email: String, password: String): Result<Unit> = result()
-        override suspend fun verifyOtp(email: String, token: String): Result<Unit> = result()
+        override suspend fun register(nickname: String, email: String, password: String): Result<Unit> = result()
+        override suspend fun isNicknameTaken(nickname: String): Result<Boolean> =
+            if (shouldFail) Result.failure(IllegalStateException("fake failure"))
+            else Result.success(nicknameTaken)
+        override suspend fun sendPasswordResetEmail(email: String): Result<Unit> = result()
+        override suspend fun verifyPasswordResetOtp(email: String, token: String): Result<Unit> = result()
+        override suspend fun updatePassword(newPassword: String): Result<Unit> = result()
         override fun currentSession(): UserSession? = null
 
         private fun result(): Result<Unit> =
@@ -89,16 +97,11 @@ class AuthFlowTest {
     @Test
     fun registerScreen_showsErrorWhenPasswordsMismatch() {
         // Arrange
-        var registerSucceeded = false
-        val viewModel = AuthViewModel(FakeAuthRepository())
-        composeRule.setContent {
-            RegisterScreen(
-                viewModel = viewModel,
-                onRegisterSuccess = { registerSucceeded = true }
-            )
-        }
+        val viewModel = RegistrationViewModel(FakeAuthRepository())
+        composeRule.setContent { RegisterScreen(viewModel = viewModel) }
 
         // Act
+        composeRule.onNodeWithText("Nickname").performTextInput("alice")
         composeRule.onNodeWithText("Email").performTextInput("alice@vinder.dev")
         composeRule.onNodeWithText("Password").performTextInput("Alice123!")
         composeRule.onNodeWithText("Password Again").performTextInput("Different1!")
@@ -106,23 +109,17 @@ class AuthFlowTest {
         composeRule.waitForIdle()
 
         // Assert
-        composeRule.onNodeWithText(AuthViewModel.PASSWORD_MISMATCH_MESSAGE).assertIsDisplayed()
-        assertTrue(!registerSucceeded)
+        composeRule.onNodeWithText(RegistrationViewModel.PASSWORD_MISMATCH_MESSAGE).assertIsDisplayed()
     }
 
     @Test
-    fun registerScreen_callsOnRegisterSuccessOnValidInput() {
+    fun registerScreen_showsEmailSentOnValidInput() {
         // Arrange
-        var registerSucceeded = false
-        val viewModel = AuthViewModel(FakeAuthRepository(shouldFail = false))
-        composeRule.setContent {
-            RegisterScreen(
-                viewModel = viewModel,
-                onRegisterSuccess = { registerSucceeded = true }
-            )
-        }
+        val viewModel = RegistrationViewModel(FakeAuthRepository(shouldFail = false))
+        composeRule.setContent { RegisterScreen(viewModel = viewModel) }
 
         // Act
+        composeRule.onNodeWithText("Nickname").performTextInput("alice")
         composeRule.onNodeWithText("Email").performTextInput("alice@vinder.dev")
         composeRule.onNodeWithText("Password").performTextInput("Alice123!")
         composeRule.onNodeWithText("Password Again").performTextInput("Alice123!")
@@ -130,30 +127,25 @@ class AuthFlowTest {
         composeRule.waitForIdle()
 
         // Assert
-        assertTrue(registerSucceeded)
+        composeRule.onNodeWithText("Check your email!").assertIsDisplayed()
     }
 
-    // ─── Authenticate (OTP) screen ─────────────────────────────────────────────
-
     @Test
-    fun authenticateScreen_callsOnVerifySuccessOnValidCode() {
+    fun registerScreen_showsErrorWhenNicknameIsTaken() {
         // Arrange
-        var verifySucceeded = false
-        val viewModel = AuthViewModel(FakeAuthRepository(shouldFail = false))
-        composeRule.setContent {
-            AuthenticateAccountScreen(
-                viewModel = viewModel,
-                email = "alice@vinder.dev",
-                onVerifySuccess = { verifySucceeded = true }
-            )
-        }
+        val viewModel = RegistrationViewModel(FakeAuthRepository(nicknameTaken = true))
+        composeRule.setContent { RegisterScreen(viewModel = viewModel) }
 
         // Act
-        composeRule.onNodeWithText("Code").performTextInput("123456")
-        composeRule.onNodeWithText("Proceed").performClick()
+        composeRule.onNodeWithText("Nickname").performTextInput("alice")
+        composeRule.onNodeWithText("Email").performTextInput("alice@vinder.dev")
+        composeRule.onNodeWithText("Password").performTextInput("Alice123!")
+        composeRule.onNodeWithText("Password Again").performTextInput("Alice123!")
+        composeRule.onNodeWithText("Register").performClick()
         composeRule.waitForIdle()
 
         // Assert
-        assertTrue(verifySucceeded)
+        composeRule.onNodeWithText(RegistrationViewModel.NICKNAME_TAKEN_MESSAGE).assertIsDisplayed()
     }
+
 }
