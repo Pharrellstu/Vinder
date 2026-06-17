@@ -8,6 +8,8 @@ import com.example.vinted.ui.initialisers.SupabaseClientInitialiser
 import com.example.vinted.ui.models.Product
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.storage.storage
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 interface IItemRepository {
     suspend fun getFeedItems(): List<Product>
@@ -59,17 +61,16 @@ class ItemRepository : IItemRepository {
         price: Double,
     ): Int {
         val result = client.from("item").insert(
-            mapOf(
-                "seller_id" to sellerId,
-                "item_category_id" to categoryId,
-                "item_condition_id" to conditionId,
-                "item_name" to name,
-                "item_description" to description,
-                "item_price" to price,
-                "is_listed" to false,
-                "is_sold" to false,
-                "created_at" to java.time.Instant.now().toString(),
-            )
+            buildJsonObject {
+                put("seller_id", sellerId)
+                put("item_category_id", categoryId)
+                put("item_condition_id", conditionId)
+                put("item_name", name)
+                put("item_description", description)
+                put("item_price", price)
+                put("is_listed", false)
+                put("is_sold", false)
+            }
         ) { select() }
         return result.decodeSingle<ItemEntity>().itemId
     }
@@ -88,7 +89,10 @@ class ItemRepository : IItemRepository {
 
     override suspend fun insertItemPhoto(itemId: Int, photoUrl: String) {
         client.from("item_photo").insert(
-            mapOf("item_id" to itemId, "photo_url" to photoUrl)
+            buildJsonObject {
+                put("item_id", itemId)
+                put("photo_url", photoUrl)
+            }
         )
     }
 

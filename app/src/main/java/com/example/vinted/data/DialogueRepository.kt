@@ -8,11 +8,14 @@ import com.example.vinted.ui.initialisers.SupabaseClientInitialiser
 import com.example.vinted.ui.models.ChatMessage
 import com.example.vinted.ui.models.Conversation
 import io.github.jan.supabase.postgrest.from
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 interface IDialogueRepository {
     suspend fun getConversations(accountId: Int): List<Conversation>
     suspend fun getMessages(dialogueId: Int): List<ChatMessage>
     suspend fun sendMessage(dialogueId: Int, senderId: Int, text: String)
+    suspend fun markDialogueRead(dialogueId: Int, accountId: Int)
 }
 
 class DialogueRepository : IDialogueRepository {
@@ -55,19 +58,21 @@ class DialogueRepository : IDialogueRepository {
 
             val otherAccount = accountMap[otherAccountId]
 
-            val messages = client.from("dialogue_message")
+            val entities = client.from("dialogue_message")
                 .select { filter { eq("dialogue_id", dialogue.dialogueId) } }
                 .decodeList<DialogueMessageEntity>()
-                .map { msg ->
-                    ChatMessage(
-                        id = msg.messageId.toString(),
-                        text = msg.text,
-                        isFromMe = msg.senderId == accountId,
-                        time = msg.timestamp.take(16).replace("T", " "),
-                    )
-                }
 
-            val unreadCount = messages.count { !it.isFromMe }
+            val messages = entities.map { msg ->
+                ChatMessage(
+                    id = msg.messageId.toString(),
+                    text = msg.text,
+                    isFromMe = msg.senderId == accountId,
+                    time = msg.timestamp.take(16).replace("T", " "),
+                )
+            }
+
+            // Unread = incoming messages still flagged unread in the DB, not every received message.
+            val unreadCount = entities.count { it.senderId != accountId && !it.isRead }
 
             Conversation(
                 id = dialogue.dialogueId.toString(),
@@ -97,15 +102,28 @@ class DialogueRepository : IDialogueRepository {
             }
     }
 
+    override suspend fun markDialogueRead(dialogueId: Int, accountId: Int) {
+        // Flag every incoming (not-from-me) message in this dialogue as read. A homogeneous
+        // Map<String, Boolean> serializes fine, unlike a mixed-type map.
+        client.from("dialogue_message").update(mapOf("is_read" to true)) {
+            filter {
+                eq("dialogue_id", dialogueId)
+                neq("sender_id", accountId)
+            }
+        }
+    }
+
     override suspend fun sendMessage(dialogueId: Int, senderId: Int, text: String) {
+        // Build a JsonObject rather than a Map<String, Any>: kotlinx.serialization has no
+        // serializer for `Any`, so a heterogeneous map throws during serialization before the
+        // request is ever sent. `timestamp` is omitted so the DB default (now()) applies.
         client.from("dialogue_message").insert(
-            mapOf(
-                "dialogue_id" to dialogueId,
-                "sender_id" to senderId,
-                "message_text" to text,
-                "timestamp" to java.time.Instant.now().toString(),
-                "is_read" to false,
-            )
+            buildJsonObject {
+                put("dialogue_id", dialogueId)
+                put("sender_id", senderId)
+                put("message_text", text)
+                put("is_read", false)
+            }
         )
     }
 }

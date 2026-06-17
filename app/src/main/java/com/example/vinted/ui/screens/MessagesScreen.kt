@@ -31,7 +31,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -87,16 +86,18 @@ fun MessagesScreen(
         }
 
         is MessagesUiState.Success -> {
-            val conversations = remember(state.conversations) { state.conversations.toMutableStateList() }
+            val conversations = state.conversations
             var openConversationId by remember { mutableStateOf<String?>(null) }
 
             openConversationId?.let { id ->
-                val conversation = conversations.first { it.id == id }
-                ChatScreen(
-                    conversation = conversation,
-                    onBack = { openConversationId = null },
-                )
-                return
+                val conversation = conversations.firstOrNull { it.id == id }
+                if (conversation != null) {
+                    ChatScreen(
+                        conversation = conversation,
+                        onBack = { openConversationId = null },
+                    )
+                    return
+                }
             }
 
             Scaffold(
@@ -135,10 +136,7 @@ fun MessagesScreen(
                         ConversationRow(
                             conversation = conversation,
                             onClick = {
-                                val index = conversations.indexOfFirst { it.id == conversation.id }
-                                if (conversation.unreadCount > 0) {
-                                    conversations[index] = conversation.copy(unreadCount = 0)
-                                }
+                                viewModel.markRead(conversation.id)
                                 openConversationId = conversation.id
                             },
                         )
