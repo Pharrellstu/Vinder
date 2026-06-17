@@ -17,6 +17,7 @@ interface IDialogueRepository {
     suspend fun getMessages(dialogueId: Int): List<ChatMessage>
     suspend fun sendMessage(dialogueId: Int, senderId: Int, text: String)
     suspend fun markRead(dialogueId: Int, accountId: Int)
+    suspend fun getUnreadCount(accountId: Int): Int
 }
 
 class DialogueRepository : IDialogueRepository {
@@ -151,5 +152,26 @@ class DialogueRepository : IDialogueRepository {
                 neq("sender_id", accountId)
             }
         }
+    }
+
+    override suspend fun getUnreadCount(accountId: Int): Int {
+        val asCreator = client.from("dialogue")
+            .select { filter { eq("dialogue_creator_id", accountId) } }
+            .decodeList<DialogueEntity>()
+        val asReceiver = client.from("dialogue")
+            .select { filter { eq("dialogue_receiver_id", accountId) } }
+            .decodeList<DialogueEntity>()
+        val ids = (asCreator + asReceiver).map { it.dialogueId }.distinct()
+        if (ids.isEmpty()) return 0
+        return client.from("dialogue_message")
+            .select {
+                filter {
+                    isIn("dialogue_id", ids)
+                    neq("sender_id", accountId)
+                    eq("is_read", false)
+                }
+            }
+            .decodeList<DialogueMessageEntity>()
+            .size
     }
 }
