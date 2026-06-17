@@ -23,6 +23,7 @@ class AuthFlowTest {
         override suspend fun login(email: String, password: String): Result<Unit> = result()
         override suspend fun register(email: String, password: String): Result<Unit> = result()
         override suspend fun verifyOtp(email: String, token: String): Result<Unit> = result()
+        override suspend fun logout(): Result<Unit> = result()
         override fun currentSession(): UserSession? = null
 
         private fun result(): Result<Unit> =

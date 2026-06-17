@@ -24,10 +24,12 @@ import com.example.vinted.ui.screens.HomeScreen
 import com.example.vinted.ui.screens.ItemDetailScreen
 import com.example.vinted.ui.screens.LoginScreen
 import com.example.vinted.ui.screens.MessagesScreen
+import com.example.vinted.ui.screens.NotificationSettingsScreen
 import com.example.vinted.ui.screens.ProfileScreen
 import com.example.vinted.ui.screens.RegisterScreen
 import com.example.vinted.ui.screens.SearchResultsScreen
 import com.example.vinted.ui.screens.SellerPublicProfileScreen
+import com.example.vinted.ui.screens.SettingsScreen
 import com.example.vinted.ui.theme.VintedTheme
 import kotlin.math.abs
 
@@ -64,17 +66,19 @@ fun VinderApp() {
             onNavigateToLogin = { authScreen = AuthScreen.LOGIN }
         )
 
-        AuthScreen.HOME -> MainTabs()
+        AuthScreen.HOME -> MainTabs(onLoggedOut = { authScreen = AuthScreen.LOGIN })
     }
 }
 
 @Composable
-private fun MainTabs() {
+private fun MainTabs(onLoggedOut: () -> Unit) {
     var selectedTab by rememberSaveable { mutableStateOf(0) }
     var showAddProduct by rememberSaveable { mutableStateOf(false) }
     var openProduct by remember { mutableStateOf<Product?>(null) }
     var openSellerId by remember { mutableStateOf<Int?>(null) }
     var showEditProfile by rememberSaveable { mutableStateOf(false) }
+    var showSettings by rememberSaveable { mutableStateOf(false) }
+    var showNotifications by rememberSaveable { mutableStateOf(false) }
     // Bumped after a profile edit so the Profile tab remounts and reloads fresh data.
     var profileReloadToken by rememberSaveable { mutableStateOf(0) }
 
@@ -105,6 +109,21 @@ private fun MainTabs() {
                 showEditProfile = false
                 profileReloadToken++
             },
+        )
+        return
+    }
+
+    // Notifications is a sub-screen of Settings; backing out returns to Settings.
+    if (showNotifications) {
+        NotificationSettingsScreen(onBack = { showNotifications = false })
+        return
+    }
+
+    if (showSettings) {
+        SettingsScreen(
+            onBack = { showSettings = false },
+            onLoggedOut = onLoggedOut,
+            onOpenNotifications = { showNotifications = true },
         )
         return
     }
@@ -141,6 +160,7 @@ private fun MainTabs() {
             ProfileScreen(
                 onTabSelected = onTabSelected,
                 onEditProfile = { showEditProfile = true },
+                onOpenSettings = { showSettings = true },
             )
         }
         else -> HomeScreen(onTabSelected = onTabSelected, onProductClick = { openProduct = it })
