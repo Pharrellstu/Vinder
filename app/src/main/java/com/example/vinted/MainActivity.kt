@@ -75,16 +75,14 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        splashScreen.setKeepOnScreenCondition { !splashViewModel.isAppReady }
-        enableEdgeToEdge()
-        setContent {
-            VintedTheme {
-                VinderApp(onRequestNotificationPermission = requestNotificationPermission)
         splashScreen.setKeepOnScreenCondition { splashViewModel.state is SplashState.Loading }
         enableEdgeToEdge()
         setContent {
             VintedTheme {
-                VinderApp(splashViewModel)
+                VinderApp(
+                    splashViewModel = splashViewModel,
+                    onRequestNotificationPermission = requestNotificationPermission,
+                )
             }
         }
     }
@@ -98,10 +96,11 @@ private enum class AuthScreen {
 }
 
 @Composable
-fun VinderApp(onRequestNotificationPermission: () -> Unit = {}) {
-    var authScreen by rememberSaveable { mutableStateOf(AuthScreen.LOGIN) }
+fun VinderApp(
+    splashViewModel: SplashViewModel = viewModel(),
+    onRequestNotificationPermission: () -> Unit = {},
+) {
     val context = LocalContext.current
-fun VinderApp(splashViewModel: SplashViewModel = viewModel()) {
     val splashState = splashViewModel.state
 
     if (splashState is SplashState.Loading) return
