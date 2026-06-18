@@ -24,6 +24,8 @@ import com.example.vinted.ui.screens.ItemDetailScreen
 import com.example.vinted.ui.screens.LoginScreen
 import com.example.vinted.ui.screens.MessagesScreen
 import com.example.vinted.ui.screens.NotificationSettingsScreen
+import com.example.vinted.ui.screens.OffersScreen
+import com.example.vinted.ui.screens.OrderHistoryScreen
 import com.example.vinted.ui.screens.ProfileScreen
 import com.example.vinted.ui.screens.RegisterScreen
 import com.example.vinted.ui.screens.SearchResultsScreen
@@ -75,6 +77,8 @@ private fun MainTabs(onLoggedOut: () -> Unit) {
     var openProduct by remember { mutableStateOf<Product?>(null) }
     var openSellerId by remember { mutableStateOf<Int?>(null) }
     var showEditProfile by rememberSaveable { mutableStateOf(false) }
+    var showOffers by rememberSaveable { mutableStateOf(false) }
+    var showOrderHistory by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var showNotifications by rememberSaveable { mutableStateOf(false) }
     // Bumped after a profile edit so the Profile tab remounts and reloads fresh data.
@@ -108,6 +112,18 @@ private fun MainTabs(onLoggedOut: () -> Unit) {
                 profileReloadToken++
             },
         )
+        return
+    }
+
+    if (showOffers) {
+        BackHandler { showOffers = false }
+        OffersScreen(onBack = { showOffers = false })
+        return
+    }
+
+    if (showOrderHistory) {
+        BackHandler { showOrderHistory = false }
+        OrderHistoryScreen(onBack = { showOrderHistory = false })
         return
     }
 
@@ -157,6 +173,8 @@ private fun MainTabs(onLoggedOut: () -> Unit) {
                 onTabSelected = onTabSelected,
                 onEditProfile = { showEditProfile = true },
                 onOpenSettings = { showSettings = true },
+                onShowOffers = { showOffers = true },
+                onShowOrders = { showOrderHistory = true },
             )
         }
         else -> HomeScreen(onTabSelected = onTabSelected, onProductClick = { openProduct = it })
