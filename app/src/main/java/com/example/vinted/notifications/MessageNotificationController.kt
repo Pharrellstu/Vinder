@@ -17,6 +17,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
@@ -32,6 +34,7 @@ import kotlinx.coroutines.launch
 object MessageNotificationController {
 
     private const val TAG = "MsgNotifications"
+    private const val RETRY_DELAY_MS = 5_000L
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var job: Job? = null
@@ -42,17 +45,24 @@ object MessageNotificationController {
         val client = SupabaseClientInitialiser.client
 
         job = scope.launch {
-            runCatching {
-                val channel = client.channel("vinder-messages")
-                val inserts = channel.postgresChangeFlow<PostgresAction.Insert>(schema = "public") {
-                    table = "dialogue_message"
-                }
-                channel.subscribe()
-                inserts.collect { insert ->
-                    val message = insert.decodeRecordOrNull<DialogueMessageEntity>() ?: return@collect
-                    handleIncoming(appContext, message)
-                }
-            }.onFailure { Log.w(TAG, "Realtime message listener stopped: ${it.message}") }
+            // Keep (re)subscribing: a single subscribe()/collect failure (e.g. Realtime not
+            // yet enabled for the table, or a dropped socket) would otherwise kill the listener
+            // permanently and require an app restart. Retry with a fixed backoff instead.
+            while (isActive) {
+                runCatching {
+                    val channel = client.channel("vinder-messages")
+                    val inserts = channel.postgresChangeFlow<PostgresAction.Insert>(schema = "public") {
+                        table = "dialogue_message"
+                    }
+                    channel.subscribe()
+                    inserts.collect { insert ->
+                        val message = insert.decodeRecordOrNull<DialogueMessageEntity>() ?: return@collect
+                        handleIncoming(appContext, message)
+                    }
+                }.onFailure { Log.w(TAG, "Realtime message listener dropped, retrying: ${it.message}") }
+                if (!isActive) break
+                delay(RETRY_DELAY_MS)
+            }
         }
     }
 
