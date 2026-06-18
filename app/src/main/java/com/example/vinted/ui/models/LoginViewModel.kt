@@ -32,7 +32,7 @@ class LoginViewModel(
             _uiState.value = LoginUiState.Loading
             repository.login(email, password)
                 .onSuccess { _uiState.value = LoginUiState.Success }
-                .onFailure { _uiState.value = LoginUiState.Error(it.message ?: GENERIC_ERROR_MESSAGE) }
+                .onFailure { _uiState.value = LoginUiState.Error(it.message ?: "Unknown error") }
         }
     }
 
@@ -42,6 +42,6 @@ class LoginViewModel(
 
     companion object {
         const val EMPTY_CREDENTIALS_MESSAGE = "Email and password must not be empty"
-        const val GENERIC_ERROR_MESSAGE = "Something went wrong. Please try again"
+        // const val GENERIC_ERROR_MESSAGE = "Incorrect email or password."
     }
 }

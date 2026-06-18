@@ -13,4 +13,11 @@
         <item name="fullscreenBackgroundColor">@color/boxDivColor</item>
         <item name="fullscreenTextColor">@color/highlight_blue</item>
     </style>
+
+
+    <style name="Theme.Vinted.SplashScreen" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/boxDivColor</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
+        <item name="postSplashScreenTheme">@style/Theme.Vinted</item>
+    </style>
 </resources>

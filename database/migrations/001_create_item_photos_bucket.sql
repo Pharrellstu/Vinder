@@ -17,8 +17,8 @@ VALUES (
 ON CONFLICT (id) DO NOTHING;
 
 -- ─── RLS: enable on storage.objects (already enabled by default in Supabase) ──
--- No-op if already enabled, kept here for documentation purposes.
-ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+-- Omitted: cloud Supabase does not allow altering this table (not owner).
+-- RLS is already enabled on storage.objects by default.
 
 -- ─── Drop policies before recreating (idempotent re-run safety) ──────────────
 DROP POLICY IF EXISTS "item-photos: authenticated upload"   ON storage.objects;

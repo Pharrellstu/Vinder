@@ -5,19 +5,17 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.activity.viewModels
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.example.vinted.ui.models.SplashViewModel
 import com.example.vinted.data.DialogueRepository
 import com.example.vinted.data.InboxBadge
 import com.example.vinted.data.SessionManager
 import com.example.vinted.ui.models.Product
 import com.example.vinted.ui.screens.AddProductScreen
+import com.example.vinted.ui.screens.ForgotPasswordScreen
 import com.example.vinted.ui.screens.EditProfileScreen
 import com.example.vinted.ui.screens.HomeScreen
 import com.example.vinted.ui.screens.ItemDetailScreen
@@ -32,8 +30,12 @@ import com.example.vinted.ui.screens.SettingsScreen
 import com.example.vinted.ui.theme.VintedTheme
 
 class MainActivity : ComponentActivity() {
+    private val splashViewModel: SplashViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
+        splashScreen.setKeepOnScreenCondition { !splashViewModel.isAppReady }
         enableEdgeToEdge()
         setContent {
             VintedTheme {
@@ -46,6 +48,7 @@ class MainActivity : ComponentActivity() {
 private enum class AuthScreen {
     LOGIN,
     REGISTER,
+    FORGOT_PASSWORD,
     HOME
 }
 
@@ -56,11 +59,15 @@ fun VinderApp() {
     when (authScreen) {
         AuthScreen.LOGIN -> LoginScreen(
             onLoginSuccess = { authScreen = AuthScreen.HOME },
-            onNavigateToRegister = { authScreen = AuthScreen.REGISTER }
+            onNavigateToRegister = { authScreen = AuthScreen.REGISTER },
+            onNavigateToForgotPassword = { authScreen = AuthScreen.FORGOT_PASSWORD }
         )
 
         AuthScreen.REGISTER -> RegisterScreen(
-            onRegisterSuccess = { authScreen = AuthScreen.LOGIN },
+            onNavigateToLogin = { authScreen = AuthScreen.LOGIN }
+        )
+
+        AuthScreen.FORGOT_PASSWORD -> ForgotPasswordScreen(
             onNavigateToLogin = { authScreen = AuthScreen.LOGIN }
         )
 
@@ -77,7 +84,6 @@ private fun MainTabs(onLoggedOut: () -> Unit) {
     var showEditProfile by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var showNotifications by rememberSaveable { mutableStateOf(false) }
-    // Bumped after a profile edit so the Profile tab remounts and reloads fresh data.
     var profileReloadToken by rememberSaveable { mutableStateOf(0) }
 
     // Fetch the inbox unread count once on entry so the bottom-nav badge is
@@ -162,4 +168,3 @@ private fun MainTabs(onLoggedOut: () -> Unit) {
         else -> HomeScreen(onTabSelected = onTabSelected, onProductClick = { openProduct = it })
     }
 }
-
