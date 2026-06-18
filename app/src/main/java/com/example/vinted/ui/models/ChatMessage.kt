@@ -5,4 +5,5 @@ data class ChatMessage(
     val text: String,
     val isFromMe: Boolean,
     val time: String,
+    val attachmentUrl: String? = null,
 )

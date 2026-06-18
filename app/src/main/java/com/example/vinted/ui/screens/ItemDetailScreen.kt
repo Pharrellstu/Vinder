@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
+import com.example.vinted.data.SessionManager
 import com.example.vinted.ui.components.DiscountBadge
 import com.example.vinted.ui.components.SellerProfileCard
 import com.example.vinted.ui.models.ItemDetailUiState
@@ -71,6 +72,11 @@ fun ItemDetailScreen(
     var showOfferSheet by remember { mutableStateOf(false) }
     var showBuySheet by remember { mutableStateOf(false) }
 
+    // A seller can reach their own item's detail page (the feed returns all listed
+    // items). Buying/offering on your own listing makes no sense, so suppress the
+    // purchase actions when the viewer is the seller.
+    val isOwnListing = product.sellerId == SessionManager.currentAccountId
+
     fun notify(message: String) {
         scope.launch { snackbarHostState.showSnackbar(message) }
     }
@@ -93,10 +99,14 @@ fun ItemDetailScreen(
             )
         },
         bottomBar = {
-            ItemDetailBottomBar(
-                onMakeOffer = { showOfferSheet = true },
-                onBuyNow = { showBuySheet = true },
-            )
+            if (isOwnListing) {
+                OwnListingBottomBar()
+            } else {
+                ItemDetailBottomBar(
+                    onMakeOffer = { showOfferSheet = true },
+                    onBuyNow = { showBuySheet = true },
+                )
+            }
         },
     ) { innerPadding ->
         Column(
@@ -379,6 +389,27 @@ private fun ItemDetailBottomBar(onMakeOffer: () -> Unit, onBuyNow: () -> Unit) {
             ) {
                 Text(text = "Buy now", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
+        }
+    }
+}
+
+@Composable
+private fun OwnListingBottomBar() {
+    Column(modifier = Modifier.background(Color.White)) {
+        HorizontalDivider(color = Grey91)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "This is your listing",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = Grey57,
+            )
         }
     }
 }

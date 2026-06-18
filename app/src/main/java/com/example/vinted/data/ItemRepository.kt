@@ -1,6 +1,7 @@
 package com.example.vinted.data
 
 import com.example.vinted.data.dto.AccountEntity
+import com.example.vinted.data.dto.AccountFavoriteEntity
 import com.example.vinted.data.dto.ItemCategoryEntity
 import com.example.vinted.data.dto.ItemConditionEntity
 import com.example.vinted.data.dto.ItemEntity
@@ -17,8 +18,10 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 interface IItemRepository {
-    suspend fun getFeedItems(): List<Product>
+    suspend fun getFeedItems(searchQuery: String? = null): List<Product>
     suspend fun getCategories(): List<String>
+    suspend fun getCategoryNames(): List<String>
+    suspend fun getConditionNames(): List<String>
     suspend fun getCategoryId(categoryName: String): Int
     suspend fun getConditionId(conditionName: String): Int
     suspend fun getItemPhotos(itemId: Int): List<String>
@@ -38,14 +41,22 @@ interface IItemRepository {
     suspend fun insertItemPhoto(itemId: Int, photoUrl: String)
     suspend fun getOffersForSeller(sellerId: Int): List<OfferWithDetails>
     suspend fun updateOfferStatus(offerId: Int, statusId: Int)
+    suspend fun getFavoriteItemIds(accountId: Int): Set<Int>
+    suspend fun getFavoriteItems(accountId: Int): List<Product>
+    suspend fun addFavorite(accountId: Int, itemId: Int)
+    suspend fun removeFavorite(accountId: Int, itemId: Int)
 }
+
+const val OFFER_STATUS_PENDING = 1
+const val OFFER_STATUS_ACCEPTED = 2
+const val OFFER_STATUS_REJECTED = 3
 
 @Serializable
 private data class OfferInsert(
     @SerialName("item_id") val itemId: Int,
     @SerialName("offer_creator_id") val offerCreatorId: Int,
     @SerialName("offer_price") val offerPrice: Double,
-    @SerialName("offer_status_id") val offerStatusId: Int = 1,
+    @SerialName("offer_status_id") val offerStatusId: Int,
 )
 
 class ItemRepository : IItemRepository {
@@ -53,10 +64,25 @@ class ItemRepository : IItemRepository {
     private val client = SupabaseClientInitialiser.client
 
     override suspend fun getCategories(): List<String> {
-        val cats = client.from("item_category")
+        // Filter UI prepends the "All" pass-through; selectable lists (e.g. Add
+        // Product) use getCategoryNames() to get the real names only.
+        return listOf("All") + getCategoryNames()
+    }
+
+    override suspend fun getCategoryNames(): List<String> {
+        return client.from("item_category")
             .select()
             .decodeList<ItemCategoryEntity>()
-        return listOf("All") + cats.map { it.name }
+            .map { it.name }
+            .distinct()
+    }
+
+    override suspend fun getConditionNames(): List<String> {
+        return client.from("item_condition")
+            .select()
+            .decodeList<ItemConditionEntity>()
+            .map { it.name }
+            .distinct()
     }
 
     override suspend fun getCategoryId(categoryName: String): Int {
@@ -143,7 +169,9 @@ class ItemRepository : IItemRepository {
     }
 
     override suspend fun createOffer(itemId: Int, creatorId: Int, offerPrice: Double) {
-        client.from("item_offer").insert(OfferInsert(itemId, creatorId, offerPrice))
+        client.from("item_offer").insert(
+            OfferInsert(itemId, creatorId, offerPrice, offerStatusId = OFFER_STATUS_PENDING)
+        )
     }
 
     override suspend fun getOffersForSeller(sellerId: Int): List<OfferWithDetails> {
@@ -188,11 +216,58 @@ class ItemRepository : IItemRepository {
         }
     }
 
-    override suspend fun getFeedItems(): List<Product> {
+    override suspend fun getFeedItems(searchQuery: String?): List<Product> {
         val items = client.from("item")
-            .select { filter { eq("is_listed", true) } }
+            .select {
+                filter {
+                    eq("is_listed", true)
+                    if (!searchQuery.isNullOrBlank()) {
+                        ilike("item_name", "%$searchQuery%")
+                    }
+                }
+            }
             .decodeList<ItemEntity>()
+        val favoriteItemIds = getFavoriteItemIds(SessionManager.currentAccountId)
+        return buildProducts(items, favoriteItemIds)
+    }
 
+    override suspend fun getFavoriteItemIds(accountId: Int): Set<Int> {
+        if (accountId == SessionManager.NO_ACCOUNT_ID) return emptySet()
+        return client.from("account_favorite")
+            .select { filter { eq("account_id", accountId) } }
+            .decodeList<AccountFavoriteEntity>()
+            .map { it.itemId }
+            .toSet()
+    }
+
+    override suspend fun getFavoriteItems(accountId: Int): List<Product> {
+        val favoriteItemIds = getFavoriteItemIds(accountId)
+        if (favoriteItemIds.isEmpty()) return emptyList()
+        val items = client.from("item")
+            .select { filter { isIn("item_id", favoriteItemIds.toList()) } }
+            .decodeList<ItemEntity>()
+        return buildProducts(items, favoriteItemIds)
+    }
+
+    override suspend fun addFavorite(accountId: Int, itemId: Int) {
+        client.from("account_favorite").insert(
+            buildJsonObject {
+                put("account_id", accountId)
+                put("item_id", itemId)
+            }
+        )
+    }
+
+    override suspend fun removeFavorite(accountId: Int, itemId: Int) {
+        client.from("account_favorite").delete {
+            filter {
+                eq("account_id", accountId)
+                eq("item_id", itemId)
+            }
+        }
+    }
+
+    private suspend fun buildProducts(items: List<ItemEntity>, favoriteItemIds: Set<Int>): List<Product> {
         val sellerIds = items.map { it.sellerId }.distinct()
         val sellerMap: Map<Int, AccountEntity> = if (sellerIds.isNotEmpty()) {
             client.from("account")
@@ -200,6 +275,18 @@ class ItemRepository : IItemRepository {
                 .decodeList<AccountEntity>()
                 .associateBy { it.accountId }
         } else emptyMap()
+
+        val categoryNameById: Map<Int, String> = client.from("item_category")
+            .select()
+            .decodeList<ItemCategoryEntity>()
+            .associateBy({ it.categoryId }, { it.name })
+
+        val conditionNameById: Map<Int, String> = client.from("item_condition")
+            .select()
+            .decodeList<ItemConditionEntity>()
+            .associateBy({ it.conditionId }, { it.name })
+
+        val coverUrlByItem = coverUrlsByItem(items.map { it.itemId })
 
         return items.map { item ->
             val seller = sellerMap[item.sellerId]
@@ -219,7 +306,21 @@ class ItemRepository : IItemRepository {
                 sellerName = seller?.accountName ?: "unknown",
                 rating = 0f,
                 sellerId = item.sellerId,
+                category = categoryNameById[item.categoryId] ?: "",
+                condition = conditionNameById[item.conditionId] ?: "",
+                isFavorite = item.itemId in favoriteItemIds,
+                coverImageUrl = coverUrlByItem[item.itemId],
             )
         }
+    }
+
+    /** Cover photo per item = the first uploaded photo (lowest item_photo_id). */
+    private suspend fun coverUrlsByItem(itemIds: List<Int>): Map<Int, String> {
+        if (itemIds.isEmpty()) return emptyMap()
+        return client.from("item_photo")
+            .select { filter { isIn("item_id", itemIds) } }
+            .decodeList<ItemPhotoEntity>()
+            .groupBy { it.itemId }
+            .mapValues { (_, photos) -> photos.minByOrNull { it.itemPhotoId }!!.photoUrl }
     }
 }

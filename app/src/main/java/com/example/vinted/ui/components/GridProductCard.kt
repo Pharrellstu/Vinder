@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -16,11 +18,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import com.example.vinted.ui.models.Product
 import com.example.vinted.ui.theme.Grey11
 import com.example.vinted.ui.theme.Grey36
@@ -35,6 +39,7 @@ private val cardShape = RoundedCornerShape(10.dp)
 fun GridProductCard(
     product: Product,
     onClick: () -> Unit = {},
+    onToggleFavorite: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -44,20 +49,39 @@ fun GridProductCard(
             .border(1.dp, Grey91, cardShape)
             .clickable(onClick = onClick),
     ) {
-        ProductImageSection(product = product)
+        ProductImageSection(product = product, onToggleFavorite = onToggleFavorite)
         ProductInfoSection(product = product)
     }
 }
 
 @Composable
-private fun ProductImageSection(product: Product) {
+private fun ProductImageSection(product: Product, onToggleFavorite: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(215.dp)
             .background(Grey91),
     ) {
-        FavoriteButton(modifier = Modifier.align(Alignment.TopEnd).padding(6.dp))
+        if (product.coverImageUrl != null) {
+            AsyncImage(
+                model = product.coverImageUrl,
+                contentDescription = product.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Outlined.Image,
+                contentDescription = null,
+                tint = Grey57,
+                modifier = Modifier.align(Alignment.Center).size(48.dp),
+            )
+        }
+        FavoriteButton(
+            isFavorite = product.isFavorite,
+            onClick = onToggleFavorite,
+            modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
+        )
         if (product.discountPercent != null) {
             DiscountBadge(
                 percent = product.discountPercent,
@@ -68,18 +92,19 @@ private fun ProductImageSection(product: Product) {
 }
 
 @Composable
-private fun FavoriteButton(modifier: Modifier) {
+private fun FavoriteButton(isFavorite: Boolean, onClick: () -> Unit, modifier: Modifier) {
     Box(
         modifier = modifier
             .size(28.dp)
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.92f)),
+            .background(Color.White.copy(alpha = 0.92f))
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = Icons.Outlined.FavoriteBorder,
-            contentDescription = "Save item",
-            tint = Grey11,
+            imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+            contentDescription = if (isFavorite) "Remove from wishlist" else "Save item",
+            tint = if (isFavorite) VinderAzure else Grey11,
             modifier = Modifier.size(14.dp),
         )
     }

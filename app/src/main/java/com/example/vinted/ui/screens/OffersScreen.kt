@@ -43,6 +43,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.vinted.data.OFFER_STATUS_ACCEPTED
+import com.example.vinted.data.OFFER_STATUS_PENDING
+import com.example.vinted.data.OFFER_STATUS_REJECTED
 import com.example.vinted.ui.models.OfferWithDetails
 import com.example.vinted.ui.models.OffersUiState
 import com.example.vinted.ui.models.OffersViewModel
@@ -208,7 +211,7 @@ private fun OfferCard(
             )
         }
 
-        if (offer.statusId == OffersViewModel.OFFER_STATUS_PENDING) {
+        if (offer.statusId == OFFER_STATUS_PENDING) {
             Spacer(modifier = Modifier.height(14.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -237,9 +240,9 @@ private fun OfferCard(
 @Composable
 private fun StatusBadge(statusId: Int) {
     val (label, bgColor, textColor) = when (statusId) {
-        OffersViewModel.OFFER_STATUS_PENDING -> Triple("Pending", Color(0xFFFFF8E1), Color(0xFFF57F17))
-        OffersViewModel.OFFER_STATUS_ACCEPTED -> Triple("Accepted", Color(0xFFE8F5E9), Color(0xFF2E7D32))
-        3 -> Triple("Rejected", Color(0xFFFFEBEE), Color(0xFFC62828))
+        OFFER_STATUS_PENDING -> Triple("Pending", Color(0xFFFFF8E1), Color(0xFFF57F17))
+        OFFER_STATUS_ACCEPTED -> Triple("Accepted", Color(0xFFE8F5E9), Color(0xFF2E7D32))
+        OFFER_STATUS_REJECTED -> Triple("Rejected", Color(0xFFFFEBEE), Color(0xFFC62828))
         else -> Triple("Cancelled", Color(0xFFF5F5F5), Grey57)
     }
     Box(

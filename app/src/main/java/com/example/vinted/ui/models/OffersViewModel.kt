@@ -5,6 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.example.vinted.data.IItemRepository
 import com.example.vinted.data.IPurchaseRepository
 import com.example.vinted.data.ItemRepository
+import com.example.vinted.data.OFFER_STATUS_ACCEPTED
+import com.example.vinted.data.OFFER_STATUS_PENDING
+import com.example.vinted.data.OFFER_STATUS_REJECTED
 import com.example.vinted.data.PurchaseRepository
 import com.example.vinted.data.SessionManager
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -86,11 +89,5 @@ class OffersViewModel(
                 load()
             }.onFailure { onError(it.message ?: "Failed to reject offer") }
         }
-    }
-
-    companion object {
-        const val OFFER_STATUS_PENDING = 1
-        const val OFFER_STATUS_ACCEPTED = 2
-        const val OFFER_STATUS_REJECTED = 3
     }
 }

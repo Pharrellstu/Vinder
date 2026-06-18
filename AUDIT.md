@@ -4,6 +4,40 @@
 
 ---
 
+## Changelog — Updates Since This Audit (2026-06-18)
+
+The following were implemented/fixed in a follow-up session, after the audit below was generated. Feature matrix and priority list further down have been updated to match; this section gives the technical detail.
+
+- **Home feed filtering is now real, not cosmetic.** `HomeViewModel` now holds category/search/price-bucket filter state and re-derives `gridItems`/`saleItems` from an in-memory cached feed on every change (`onCategorySelected`, `onSearchQueryChanged`, `onPriceBucketSelected` in `HomeViewModel.kt`). Previously the category chip row updated its own look via local Compose `remember` state but never touched the rendered list.
+- **Search matching is word-boundary prefix, not whole-string prefix.** Typing `"A"` matches any item whose name has a word starting with `A`; typing `"Air Force"` matches `"Nike Air Force"` because the match starts at each word boundary, not just index 0 (`HomeViewModel.matchesSearch`).
+- **`SearchResultsScreen` (the Search tab) was non-functional and is now wired up:**
+  - The category/condition/size/price filters in `FilterBottomSheet` updated state but were never applied to the rendered list (`SearchResultsGrid` always received a static hardcoded sample list). Added `matchesFilters()` and derive `filteredResults` from it.
+  - The search field was a static, non-editable `Text` with no-op back/clear callbacks. Replaced with a real `BasicTextField`, wired `onBack`/`onClear`/`onQueryChange`.
+  - The "Sort" chip was a no-op. Added a `SortOrder` enum (None → Price ↑ → Price ↓) the chip cycles through.
+  - Default filter selection pre-applied `categories = {Women, Kids}` / `conditions = {Like new, Good}` — tuned for the old sample data. Defaulted to an empty `SearchFilters()` so real backend items aren't silently hidden behind stale presets.
+- **Search is now server-side, against real Supabase data — the hardcoded sample list is gone.** `IItemRepository.getFeedItems(searchQuery: String? = null)` now takes an optional query and applies `ilike("item_name", "%query%")` in the Postgrest filter when present, reusing the existing seller/category/favorite join logic via the shared `buildProducts()` helper (no duplicated repository code). `SearchResultsViewModel` (new) calls this on every keystroke via `SearchResultsTopBar`'s `onQueryChange`/`onClear`, with `Loading`/`Success`/`Error` UI states. AI-powered search is explicitly out of scope for now (per product decision), so the existing pgvector/Edge Function plan in Priority 4 stands as future work, not done here.
+- **`Product.condition` is now populated for real items.** `buildProducts()` previously only resolved `category` from `item_category`; the Condition filter chips (New/Like new/Good/Fair) would have matched against an always-blank field for any real (non-sample) item. Added the same `item_condition_id → item_condition_name` lookup used for category, mirroring the existing pattern.
+- **Fixed duplicate category chips.** `database/accounts.sql` and `database/seed_test_data.sql` both insert overlapping category names (`Electronics`, `Books`, `Sports`) and `item_category.category_name` had no `UNIQUE` constraint, so `ON CONFLICT DO NOTHING` silently never fired — running both seed scripts (as setup instructions require) produces literal duplicate rows. Fixed by adding `.distinct()` in `ItemRepository.getCategories()` (works against already-duplicated existing data) and adding `UNIQUE` to `category_name` in `database/init.sql` (prevents it for fresh installs; does not retroactively fix already-seeded databases).
+- **Unified top bar across Home / Search / Inbox.** `HomeScreen`'s and `SearchResultsScreen`'s top bars were custom `Row`s with ad hoc padding, inconsistent in height and status-bar inset handling from `MessagesScreen`'s Material3 `TopAppBar`/`CenterAlignedTopAppBar`. Both now use the same `TopAppBar` component, so all three screens share identical height and inset behavior.
+- **Brand font applied to the in-app logo.** `HomeScreen`'s "Vinder" wordmark now uses `instrumentSerifNormal` (the same font family already used on Login/Register/ForgotPassword), instead of falling back to the default UI font.
+- **Wishlist implemented end-to-end** (was previously schema-only, see Feature Matrix below):
+  - `ItemRepository`: added `getFavoriteItemIds`, `getFavoriteItems`, `addFavorite`, `removeFavorite`, all backed by the existing `account_favorite` table (no migration needed). Refactored product-row building into a shared `buildProducts()` helper so `getFeedItems()` and `getFavoriteItems()` both attach `Product.isFavorite`.
+  - `GridProductCard`'s heart button (previously decorative, no `onClick`) now toggles real, persisted favorite state — filled/outlined icon, optimistic UI update with rollback on failure (`HomeViewModel.onToggleFavorite`).
+  - New `WishlistScreen` + `WishlistViewModel`, reachable via a new "Wishlist" button on `ProfileScreen`, wired through `MainActivity` the same way as the existing Offers/Order History overlays.
+- **Verified clean after `develop` merge** (`8bd57b8`): no leftover conflict markers, `compileDebugKotlin`, `compileDebugAndroidTestKotlin`, and `assembleDebug` all succeed. Noted that `develop` independently fixed `getCategoryId`/`getConditionId` (switched `decodeSingle()` → `decodeList().firstOrNull()`) for the same duplicate-seed-row root cause described above — unrelated to this session's `.distinct()` fix on `getCategories()`, but the same underlying data issue.
+
+## Changelog — Updates Since This Audit (2026-06-18, second session)
+
+App is now Supabase-hosted on the web, not the local Docker stack this document otherwise assumes — schema/RLS changes are applied by the user directly in the hosted dashboard, so this session's fixes are application-layer only; no `database/*.sql` file was touched.
+
+- **Add Product now actually creates a listing.** `AddProductScreen`'s category/condition picker chips were hardcoded string lists (`"Clothing"`, `"Toys"`, etc.) that didn't reliably match whatever rows happened to exist in `item_category`/`item_condition` for a given Supabase instance (`database/accounts.sql` and `database/seed_test_data.sql` seed different, only-partially-overlapping name sets). Picking a label with no matching DB row made `ItemRepository.getCategoryId`/`getConditionId` throw *before* `insertItem` was ever called, so the wizard would walk through all 3 steps and fail silently into a snackbar with nothing written to `item`. Fixed by adding `getCategoryNames()`/`getConditionNames()` to `ItemRepository` (real DB rows, no `"All"` prefix) and having `AddProductViewModel`/`AddProductScreen` source their chips from there instead of hardcoded constants — the picked label can no longer mismatch the DB.
+- **Product images now render in the feed, search results, and wishlist.** `GridProductCard` and `SearchResultCard` had image boxes with no `AsyncImage` in them at all — confirmed by reading the code, not inferred. `Product` had no image field, and `ItemRepository.buildProducts()` never queried `item_photo`. Added `Product.coverImageUrl`, populated it via a bulk `item_photo` lookup in `buildProducts()` (cover = lowest `item_photo_id`, same pattern already used by the profile grid's `coverUrlsByItem`), and wired both cards to render it with a placeholder fallback when null.
+- **Sellers can no longer buy or make offers on their own listings.** The main feed includes the current user's own listings (`getFeedItems()` doesn't filter by seller), and `ItemDetailScreen`'s "Buy now"/"Make offer" buttons had no check against the viewer's identity. Added `isOwnListing` check in `ItemDetailScreen` (shows a "This is your listing" bar instead of the buy/offer buttons) plus a defense-in-depth guard in `ItemDetailViewModel.confirmBuy()`/`submitOffer()` that rejects the action before any network call if `sellerId == buyerId`/`creatorId`.
+- **Chat now supports image attachments, with a WhatsApp-style send preview.** Tapping the (previously decorative, unwired) circular icon slot left of the chat text field opens a gallery picker; the picked image opens a full-screen preview (image, cancel, optional one-line caption, send) before anything is uploaded — nothing sends on pick alone. Confirmed sends upload to the existing public `item-photos` bucket under a `chat/{dialogueId}/...` path (no new bucket/policy needed — that bucket's upload policy isn't path-restricted) and insert a `dialogue_message` + `dialogue_message_attachment` row. `ChatMessage` gained `attachmentUrl`; `DialogueRepository`'s four message-building call sites populate it via a bulk join, mirroring the existing cover-photo pattern.
+  - **Found and fixed a real display bug in the same feature:** the first implementation pass relied on a second Realtime subscription on `dialogue_message_attachment` inserts to learn about new attachments, but that table was never added to the `supabase_realtime` publication (only `dialogue_message`/`dialogue` were, per `database/migrations/003_chat_realtime_and_policies.sql`) — so those events could never arrive, and every image permanently rendered as a "📷 Photo" text placeholder instead of the photo, for both sender and recipient. Fixed by dropping that dead subscription and instead doing a direct Postgrest lookup of the attachment row whenever any new `dialogue_message` insert arrives (cheap, since chat messages arrive at human-typing cadence, not high QPS) — works identically regardless of whether the image has a caption.
+
+---
+
 ## AUDIT REPORT
 
 ### Project Overview
@@ -27,21 +61,21 @@
 | User profile (view) | ✅ | `ProfileScreen` + `SellerPublicProfileScreen` load from DB |
 | User profile (edit) | ✅ | `EditProfileViewModel` + `AccountRepository.updateProfile()` |
 | Avatar upload | 🔶 | Uploads to `item-photos` bucket under `avatars/` prefix — no dedicated bucket, no size/type limit |
-| Listings (create) | ✅ | `AddProductScreen` + full photo upload flow |
+| Listings (create) | ✅ | `AddProductScreen` + full photo upload flow; category/condition pickers now load real names from `item_category`/`item_condition` instead of hardcoded strings, so the listing can no longer fail to insert on a name mismatch |
 | Listings (edit/delete) | ❌ | No screen, no repository method for edit or delete of own listings |
-| Search | 🔶 | `SearchResultsScreen` filters locally on `HomeViewModel`'s already-loaded feed — no server-side search, no AI search despite being a stated feature |
-| Filters / sorting | 🔶 | `FilterBottomSheet` exists; applied client-side on in-memory list |
+| Search | ✅ | `HomeScreen` search is client-side word-boundary prefix match on the loaded feed (`HomeViewModel`). `SearchResultsScreen`'s search bar now does real **server-side** search via `ItemRepository.getFeedItems(searchQuery)` → Postgrest `ilike` against the real `item` table — no more hardcoded sample data. AI-powered search is still not implemented (explicitly deferred, not a bug) |
+| Filters / sorting | 🔶 | `HomeScreen` category + price-bucket filters are wired to `HomeViewModel` and actually filter the live feed. `SearchResultsScreen`'s `FilterBottomSheet` (category/condition/size/price) and sort control are fully functional and now operate on real server-fetched items — but the filtering itself still happens client-side on the fetched page, not pushed down into the Postgrest query. `size` has no backing DB column at all, so the size filter can never match a real item |
 | Product detail view | ✅ | `ItemDetailScreen` with photo carousel, description, seller card |
-| Cart | ❌ | `account_favorite` table in schema, zero app code touches it |
-| Wishlist | ❌ | Same as cart — table exists, no UI or repository |
-| Buy flow | 🔶 | `confirmBuy()` inserts to `purchase` and marks item sold, but fees calculated client-side (spoofable); no payment gateway |
+| Cart | ❌ | No multi-item cart concept in this app's buy flow (items are bought individually). `account_favorite` is used by Wishlist, not cart — original audit's note that the table was untouched is now out of date |
+| Wishlist | ✅ | `account_favorite`-backed via `ItemRepository.getFavoriteItemIds/getFavoriteItems/addFavorite/removeFavorite`; heart button on `GridProductCard` toggles persisted state; dedicated `WishlistScreen` reachable from `ProfileScreen` |
+| Buy flow | 🔶 | `confirmBuy()` inserts to `purchase` and marks item sold, but fees calculated client-side (spoofable); no payment gateway. Self-purchase/self-offer now blocked: `ItemDetailScreen` hides Buy/Offer on the viewer's own listings, and `ItemDetailViewModel.confirmBuy()`/`submitOffer()` reject `sellerId == buyerId`/`creatorId` before any network call |
 | Payment integration | ❌ | No Stripe/payment SDK; purchase is a direct DB insert |
 | Order history | ✅ | `OrderHistoryScreen` + `OrderHistoryViewModel`; shows item name, fee breakdown, total, date |
 | Make offer | ✅ | `submitOffer()` inserts to `item_offer` |
 | Offer management | ✅ | `OffersScreen` + `OffersViewModel`; seller can accept/reject; accept chains purchase creation + markAsSold |
 | Messaging list | ✅ | `MessagesScreen` loads conversations from DB |
 | Chat | ✅ | `ChatScreen` with Supabase Realtime subscription |
-| Message attachments | ❌ | `dialogue_message_attachment` table in schema; zero app code touches it |
+| Message attachments | ✅ | `ChatScreen` supports picking a gallery image, a WhatsApp-style full-screen preview (with optional caption) before sending, upload to `item-photos` under `chat/{dialogueId}/`, and a `dialogue_message_attachment` row; both sides see the image live via a direct Postgrest lookup (not Realtime — see changelog) |
 | Ratings & reviews | ❌ | `account_rating` + `rating` tables in schema; zero app code or UI |
 | Push notifications | ❌ | FCM not integrated; `NotificationSettingsViewModel` is in-memory only, preferences lost on process kill |
 | Followers | 🔶 | `account_following` table exists, follower count shown in profile stats, but follow/unfollow action not implemented |
@@ -127,9 +161,9 @@
 - [x] **Order history screen** — `OrderHistoryScreen` + `OrderHistoryViewModel` + `PurchaseRepository.getMyPurchases()` — **M** ✅
 - [ ] **Listing edit/delete** — add `updateItem()` and `deleteItem()` to `IItemRepository`; new `EditListingScreen` reachable from `ProfileScreen` owned listings tab — **M**
 - [x] **Offer management** — `OffersScreen` + `OffersViewModel` + `ItemRepository.getOffersForSeller/updateOfferStatus()` — **M** ✅
-- [ ] **Wishlist/favorites** — wire `account_favorite` table; add heart icon on `ItemDetailScreen` + `HomeScreen` cards; `AccountRepository.toggleFavorite()` — **M**
+- [x] **Wishlist/favorites** — `ItemRepository` favorite methods + heart icon on `HomeScreen` (`GridProductCard`) cards wired to persisted state; new `WishlistScreen` — **M** ✅ (still missing: heart icon on `ItemDetailScreen`)
 - [ ] **Follower follow/unfollow action** — `AccountRepository.follow/unfollow()`; wire button in `SellerPublicProfileScreen` (stat count already displayed) — **S**
-- [ ] **Server-side search** — `SearchResultsScreen` currently filters in-memory list; replace with `client.from("item").select { filter { ilike("item_name", "%$query%") } }` at minimum; or add pgvector + Edge Function for AI search — **L**
+- [x] **Server-side search** — `IItemRepository.getFeedItems(searchQuery)` applies `ilike("item_name", "%query%")` in the Postgrest query; `SearchResultsViewModel` calls it on every keystroke — **L** ✅ (AI/pgvector semantic search deliberately not in scope, see Priority 4)
 - [ ] **Push notifications** — integrate FCM; add `firebase-messaging` dependency; store FCM token in `account_side_information` or new `account_device_token` table; send notifications on message/offer/sale events via Edge Function — **L**
 - [ ] **Notification settings persistence** — `NotificationSettingsViewModel.kt` — write/read preferences to DataStore or Supabase — **S**
 
@@ -149,10 +183,10 @@
 
 ### Priority 4 — Nice-to-Have / Polish
 
-- [ ] **AI-powered search** — stated as key feature; add pgvector extension + embedding column on `item`; Edge Function to vectorize descriptions on insert; search via cosine similarity — **L**
+- [ ] **AI-powered search** — stated as key feature; add pgvector extension + embedding column on `item`; Edge Function to vectorize descriptions on insert; search via cosine similarity — **L** — *explicitly deferred for now, not a bug; plain server-side text search (`ilike`) is in place as the interim*
 - [ ] **Dedicated avatar storage bucket** — separate `avatars` bucket from `item-photos`; cleaner access policies and quotas — **S**
 - [ ] **Listing image picker UX** — verify `AddProductScreen` allows picking multiple photos from gallery; test on physical device
 - [ ] **`memberSince` display** — once `account.created_at` added, format and display in `ItemDetailScreen`
-- [ ] **Message attachments** — `dialogue_message_attachment` table exists; wire photo-sending in `ChatScreen` — **M**
+- [x] **Message attachments** — `dialogue_message_attachment` table wired up; `ChatScreen` supports gallery picker + send preview + caption, `DialogueRepository`/`ChatViewModel` handle upload and live display — **M** ✅
 - [ ] **Dark mode persistence** — `SettingsViewModel` dark mode toggle; persist to DataStore — **S**
 - [ ] **Error recovery UI** — most screens show error state text but no retry button; add `Button("Retry") { viewModel.load() }` pattern — **S**

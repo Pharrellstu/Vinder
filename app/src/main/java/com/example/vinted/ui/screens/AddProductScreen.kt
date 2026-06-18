@@ -34,6 +34,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.vinted.data.SessionManager
+import com.example.vinted.ui.models.AddProductFormOptions
 import com.example.vinted.ui.models.AddProductUiState
 import com.example.vinted.ui.models.AddProductViewModel
 import com.example.vinted.ui.models.Product
@@ -59,8 +60,6 @@ import com.example.vinted.ui.theme.VinderAzureLight
 import com.example.vinted.ui.theme.VintedTheme
 import kotlinx.coroutines.launch
 
-private val CATEGORIES = listOf("Clothing", "Electronics", "Books", "Home & Garden", "Sports", "Toys", "Vehicles", "Other")
-private val CONDITIONS = listOf("New", "Like New", "Good", "Fair")
 private const val MAX_PHOTOS = 6
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -80,6 +79,7 @@ fun AddProductScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val uiState by viewModel.uiState.collectAsState()
+    val formOptions by viewModel.formOptions.collectAsState()
     val context = LocalContext.current
 
     LaunchedEffect(uiState) {
@@ -155,6 +155,7 @@ fun AddProductScreen(
                     },
                 )
                 2 -> DetailsStep(
+                    formOptions = formOptions,
                     title = title,
                     onTitleChange = { title = it.take(60) },
                     description = description,
@@ -463,6 +464,7 @@ private fun PhotoSourceButton(icon: @Composable () -> Unit, label: String, onCli
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun DetailsStep(
+    formOptions: AddProductFormOptions,
     title: String, onTitleChange: (String) -> Unit,
     description: String, onDescriptionChange: (String) -> Unit,
     price: String, onPriceChange: (String) -> Unit,
@@ -470,6 +472,26 @@ private fun DetailsStep(
     condition: String, onConditionChange: (String) -> Unit,
     onNext: () -> Unit,
 ) {
+    // Categories/conditions come straight from the DB, so the step waits for them
+    // before letting the user pick — picking a stale label would fail the lookup.
+    when (formOptions) {
+        is AddProductFormOptions.Loading -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = VinderAzure)
+            }
+            return
+        }
+        is AddProductFormOptions.Error -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(formOptions.message, fontSize = 14.sp, color = Grey57)
+            }
+            return
+        }
+        is AddProductFormOptions.Loaded -> Unit
+    }
+
+    val categories = formOptions.categories
+    val conditions = formOptions.conditions
     val isNextEnabled = title.isNotBlank() && description.isNotBlank() && price.isNotBlank() &&
         category.isNotBlank() && condition.isNotBlank()
 
@@ -523,7 +545,7 @@ private fun DetailsStep(
                 .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            CATEGORIES.forEach { cat ->
+            categories.forEach { cat ->
                 SelectableChip(label = cat, selected = category == cat, onSelect = { onCategoryChange(cat) })
             }
         }
@@ -532,7 +554,7 @@ private fun DetailsStep(
         SectionLabel("Condition")
         Spacer(Modifier.height(8.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            CONDITIONS.forEach { cond ->
+            conditions.forEach { cond ->
                 SelectableChip(label = cond, selected = condition == cond, onSelect = { onConditionChange(cond) })
             }
         }

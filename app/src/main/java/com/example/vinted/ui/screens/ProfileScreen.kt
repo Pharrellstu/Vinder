@@ -50,6 +50,7 @@ fun ProfileScreen(
     onOpenSettings: () -> Unit = {},
     onShowOffers: () -> Unit = {},
     onShowOrders: () -> Unit = {},
+    onShowWishlist: () -> Unit = {},
     accountId: Int? = null,
     viewModel: ProfileViewModel = viewModel(
         factory = object : androidx.lifecycle.ViewModelProvider.Factory {
@@ -119,6 +120,7 @@ fun ProfileScreen(
                             onShareProfile = { shareProfile(context, state.profile.handle) },
                             onShowOffers = onShowOffers,
                             onShowOrders = onShowOrders,
+                            onShowWishlist = onShowWishlist,
                         )
                     }
                     item {
@@ -251,6 +253,7 @@ private fun ProfileActionButtons(
     onShareProfile: () -> Unit,
     onShowOffers: () -> Unit,
     onShowOrders: () -> Unit,
+    onShowWishlist: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -300,6 +303,14 @@ private fun ProfileActionButtons(
                 modifier = Modifier.weight(1f),
             )
         }
+        ActionButton(
+            label = "Wishlist",
+            bgColor = Color.White,
+            textColor = Color.Black,
+            borderColor = Grey91,
+            onClick = onShowWishlist,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 

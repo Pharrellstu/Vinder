@@ -21,7 +21,8 @@ class AuthFlowTest {
 
     private class FakeAuthRepository(
         private val shouldFail: Boolean = false,
-        private val nicknameTaken: Boolean = false
+        private val nicknameTaken: Boolean = false,
+        private val emailTaken: Boolean = false
     ) : IAuthRepository {
         override suspend fun login(email: String, password: String): Result<Unit> = result()
         override suspend fun logout(): Result<Unit> = result()
@@ -29,6 +30,9 @@ class AuthFlowTest {
         override suspend fun isNicknameTaken(nickname: String): Result<Boolean> =
             if (shouldFail) Result.failure(IllegalStateException("fake failure"))
             else Result.success(nicknameTaken)
+        override suspend fun isEmailTaken(email: String): Result<Boolean> =
+            if (shouldFail) Result.failure(IllegalStateException("fake failure"))
+            else Result.success(emailTaken)
         override suspend fun sendPasswordResetEmail(email: String): Result<Unit> = result()
         override suspend fun verifyPasswordResetOtp(email: String, token: String): Result<Unit> = result()
         override suspend fun updatePassword(newPassword: String): Result<Unit> = result()
