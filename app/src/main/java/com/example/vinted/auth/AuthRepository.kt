@@ -1,6 +1,7 @@
 package com.example.vinted.auth
 
 import android.util.Log
+import com.example.vinted.data.AccountPreferences
 import com.example.vinted.data.SessionManager
 import com.example.vinted.data.dto.AccountEntity
 import com.example.vinted.ui.initialisers.SupabaseClientInitialiser
@@ -44,6 +45,7 @@ open class AuthRepository : IAuthRepository {
 
             SessionManager.currentAccountId = account?.accountId ?: SessionManager.NO_ACCOUNT_ID
             SessionManager.currentEmail = account?.accountEmail ?: authenticatedEmail
+            AccountPreferences.save(SessionManager.currentAccountId, SessionManager.currentEmail)
         }.logError("login")
 
     override suspend fun register(nickname: String, email: String, password: String): Result<Unit> =
@@ -89,6 +91,7 @@ open class AuthRepository : IAuthRepository {
     override suspend fun logout(): Result<Unit> = runCatching {
         SupabaseClientInitialiser.client.auth.signOut()
         SessionManager.clear()
+        AccountPreferences.clear()
     }
 
     override fun currentSession(): UserSession? =

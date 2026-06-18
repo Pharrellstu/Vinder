@@ -21,7 +21,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.example.vinted.ui.models.SplashState
 import com.example.vinted.ui.models.SplashViewModel
 import com.example.vinted.data.DialogueRepository
 import com.example.vinted.data.InboxBadge
@@ -78,6 +80,11 @@ class MainActivity : ComponentActivity() {
         setContent {
             VintedTheme {
                 VinderApp(onRequestNotificationPermission = requestNotificationPermission)
+        splashScreen.setKeepOnScreenCondition { splashViewModel.state is SplashState.Loading }
+        enableEdgeToEdge()
+        setContent {
+            VintedTheme {
+                VinderApp(splashViewModel)
             }
         }
     }
@@ -94,6 +101,14 @@ private enum class AuthScreen {
 fun VinderApp(onRequestNotificationPermission: () -> Unit = {}) {
     var authScreen by rememberSaveable { mutableStateOf(AuthScreen.LOGIN) }
     val context = LocalContext.current
+fun VinderApp(splashViewModel: SplashViewModel = viewModel()) {
+    val splashState = splashViewModel.state
+
+    if (splashState is SplashState.Loading) return
+
+    var authScreen by rememberSaveable {
+        mutableStateOf(if (splashState is SplashState.LoggedIn) AuthScreen.HOME else AuthScreen.LOGIN)
+    }
 
     when (authScreen) {
         AuthScreen.LOGIN -> LoginScreen(
