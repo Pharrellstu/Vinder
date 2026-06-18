@@ -10,22 +10,19 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.example.vinted.ui.models.SplashViewModel
 import com.example.vinted.data.DialogueRepository
 import com.example.vinted.data.InboxBadge
 import com.example.vinted.data.NotificationPreferences
@@ -36,12 +33,15 @@ import com.example.vinted.ui.models.Conversation
 import com.example.vinted.ui.models.Product
 import com.example.vinted.ui.screens.AddProductScreen
 import com.example.vinted.ui.screens.ChatScreen
+import com.example.vinted.ui.screens.ForgotPasswordScreen
 import com.example.vinted.ui.screens.EditProfileScreen
 import com.example.vinted.ui.screens.HomeScreen
 import com.example.vinted.ui.screens.ItemDetailScreen
 import com.example.vinted.ui.screens.LoginScreen
 import com.example.vinted.ui.screens.MessagesScreen
 import com.example.vinted.ui.screens.NotificationSettingsScreen
+import com.example.vinted.ui.screens.OffersScreen
+import com.example.vinted.ui.screens.OrderHistoryScreen
 import com.example.vinted.ui.screens.ProfileScreen
 import com.example.vinted.ui.screens.RegisterScreen
 import com.example.vinted.ui.screens.SearchResultsScreen
@@ -50,7 +50,10 @@ import com.example.vinted.ui.screens.SettingsScreen
 import com.example.vinted.ui.theme.VintedTheme
 
 class MainActivity : ComponentActivity() {
+    private val splashViewModel: SplashViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
 
         NotificationPreferences.init(this)
@@ -70,6 +73,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        splashScreen.setKeepOnScreenCondition { !splashViewModel.isAppReady }
         enableEdgeToEdge()
         setContent {
             VintedTheme {
@@ -82,6 +86,7 @@ class MainActivity : ComponentActivity() {
 private enum class AuthScreen {
     LOGIN,
     REGISTER,
+    FORGOT_PASSWORD,
     HOME
 }
 
@@ -93,11 +98,15 @@ fun VinderApp(onRequestNotificationPermission: () -> Unit = {}) {
     when (authScreen) {
         AuthScreen.LOGIN -> LoginScreen(
             onLoginSuccess = { authScreen = AuthScreen.HOME },
-            onNavigateToRegister = { authScreen = AuthScreen.REGISTER }
+            onNavigateToRegister = { authScreen = AuthScreen.REGISTER },
+            onNavigateToForgotPassword = { authScreen = AuthScreen.FORGOT_PASSWORD }
         )
 
         AuthScreen.REGISTER -> RegisterScreen(
-            onRegisterSuccess = { authScreen = AuthScreen.LOGIN },
+            onNavigateToLogin = { authScreen = AuthScreen.LOGIN }
+        )
+
+        AuthScreen.FORGOT_PASSWORD -> ForgotPasswordScreen(
             onNavigateToLogin = { authScreen = AuthScreen.LOGIN }
         )
 
@@ -122,9 +131,10 @@ private fun MainTabs(onLoggedOut: () -> Unit) {
     var openSellerId by remember { mutableStateOf<Int?>(null) }
     var openChat by remember { mutableStateOf<ChatTarget?>(null) }
     var showEditProfile by rememberSaveable { mutableStateOf(false) }
+    var showOffers by rememberSaveable { mutableStateOf(false) }
+    var showOrderHistory by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var showNotifications by rememberSaveable { mutableStateOf(false) }
-    // Bumped after a profile edit so the Profile tab remounts and reloads fresh data.
     var profileReloadToken by rememberSaveable { mutableStateOf(0) }
 
     // Fetch the inbox unread count once on entry so the bottom-nav badge is
@@ -155,6 +165,18 @@ private fun MainTabs(onLoggedOut: () -> Unit) {
                 profileReloadToken++
             },
         )
+        return
+    }
+
+    if (showOffers) {
+        BackHandler { showOffers = false }
+        OffersScreen(onBack = { showOffers = false })
+        return
+    }
+
+    if (showOrderHistory) {
+        BackHandler { showOrderHistory = false }
+        OrderHistoryScreen(onBack = { showOrderHistory = false })
         return
     }
 
@@ -221,6 +243,8 @@ private fun MainTabs(onLoggedOut: () -> Unit) {
                 onTabSelected = onTabSelected,
                 onEditProfile = { showEditProfile = true },
                 onOpenSettings = { showSettings = true },
+                onShowOffers = { showOffers = true },
+                onShowOrders = { showOrderHistory = true },
             )
         }
         else -> HomeScreen(onTabSelected = onTabSelected, onProductClick = { openProduct = it })
@@ -270,4 +294,3 @@ private fun SellerChatScreen(sellerId: Int, itemId: Int?, onBack: () -> Unit) {
         else -> ChatScreen(conversation = convo, onBack = onBack)
     }
 }
-

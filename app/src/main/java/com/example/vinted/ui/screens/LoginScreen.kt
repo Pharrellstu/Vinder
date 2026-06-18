@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicSecureTextField
 import androidx.compose.foundation.text.BasicTextField
@@ -54,19 +55,39 @@ import com.example.vinted.ui.theme.roundedInputShape
 fun LoginScreen(
     viewModel: LoginViewModel = viewModel(),
     onLoginSuccess: () -> Unit = {},
-    onNavigateToRegister: () -> Unit = {}
+    onNavigateToRegister: () -> Unit = {},
+    onNavigateToForgotPassword: () -> Unit = {}
 ) {
-
-    val textFieldState = rememberTextFieldState("")
-    val passwordFieldState = rememberTextFieldState("")
-    var checked by remember { mutableStateOf(true) }
     val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.resetState()
+    }
 
     LaunchedEffect(uiState) {
         if (uiState is LoginUiState.Success) {
             onLoginSuccess()
         }
     }
+
+    LoginContent(
+        uiState = uiState,
+        onLogin = viewModel::login,
+        onNavigateToRegister = onNavigateToRegister,
+        onNavigateToForgotPassword = onNavigateToForgotPassword
+    )
+}
+
+@Composable
+private fun LoginContent(
+    uiState: LoginUiState,
+    onLogin: (String, String) -> Unit,
+    onNavigateToRegister: () -> Unit,
+    onNavigateToForgotPassword: () -> Unit
+) {
+    val textFieldState = rememberTextFieldState("")
+    val passwordFieldState = rememberTextFieldState("")
+    var checked by remember { mutableStateOf(true) }
 
     Box(
         modifier = Modifier.fillMaxSize()
@@ -75,7 +96,8 @@ fun LoginScreen(
     ) {
         Column(
             modifier = Modifier
-                .size(340.dp, 430.dp)
+                .width(380.dp)
+                .wrapContentHeight()
                 .background(
                     color = Color(boxDivColor.value),
                     shape = RoundedCornerShape(16.dp),
@@ -91,7 +113,7 @@ fun LoginScreen(
         ) {
             Text(
                 text = "Vinder",
-                fontSize = 48.sp,
+                fontSize = 56.sp,
                 fontFamily = instrumentSerifNormal,
                 fontStyle = FontStyle.Italic,
                 color = headingColor,
@@ -103,13 +125,13 @@ fun LoginScreen(
             BasicTextField(
                 state = textFieldState,
                 textStyle = TextStyle(
-                    fontSize = 18.sp,
+                    fontSize = 20.sp,
                     color = Color.Black
                 ),
                 modifier = Modifier
                     .padding(top = 20.dp)
                     .fillMaxWidth()
-                    .height(38.dp)
+                    .height(46.dp)
                     .background(color = inputColor, shape = roundedInputShape)
                     .border(BorderStroke(1.dp, Color.Black.copy(alpha = 0.1f)),
                         shape = roundedInputShape),
@@ -120,9 +142,9 @@ fun LoginScreen(
                     ) {
                         if (textFieldState.text.isEmpty()) {
                             Text(
-                                text = "Username",
+                                text = "Email",
                                 color = Color.Black,
-                                fontSize = 14.sp
+                                fontSize = 16.sp
                             )
                         }
 
@@ -139,7 +161,7 @@ fun LoginScreen(
                         top = 26.dp
                     )
                     .fillMaxWidth()
-                    .height(38.dp)
+                    .height(46.dp)
                     .background(color = inputColor, shape = roundedInputShape)
                     .border(BorderStroke(1.dp, Color.Black.copy(alpha = 0.1f)),
                         shape = roundedInputShape),
@@ -152,7 +174,7 @@ fun LoginScreen(
                             Text(
                                 text = "Password",
                                 color = Color.Black,
-                                fontSize = 14.sp
+                                fontSize = 16.sp
                             )
                         }
                         innerPasswordField()
@@ -162,7 +184,7 @@ fun LoginScreen(
             )
 
             Row(
-                Modifier.padding(top = 16.dp)
+                Modifier.padding(top = 18.dp)
                     .fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
@@ -185,20 +207,21 @@ fun LoginScreen(
 
                     Text(
                         text = "Keep me logged in ",
-                        fontSize = 12.sp,
+                        fontSize = 15.sp,
                         modifier = Modifier.padding(start = 8.dp)
                     )
                 }
 
                 Text(
                     text = "Forgot password?",
-                    fontSize = 12.sp,
+                    fontSize = 15.sp,
+                    modifier = Modifier.clickable { onNavigateToForgotPassword() }
                 )
             }
 
             Button(
                 onClick = {
-                    viewModel.login(
+                    onLogin(
                         textFieldState.text.toString(),
                         passwordFieldState.text.toString()
                     )
@@ -209,11 +232,11 @@ fun LoginScreen(
                 ),
                 modifier = Modifier
                     .padding(top = 32.dp)
-                    .width(170.dp)
-                    .height(38.dp)
+                    .width(190.dp)
+                    .height(46.dp)
                     .align(Alignment.CenterHorizontally)
             ) {
-                Text("Log In")
+                Text("Log In", fontSize = 18.sp)
             }
 
             if (uiState is LoginUiState.Loading) {
@@ -221,7 +244,7 @@ fun LoginScreen(
                     color = headingColor,
                     modifier = Modifier
                         .padding(top = 16.dp)
-                        .size(24.dp)
+                        .size(28.dp)
                         .align(Alignment.CenterHorizontally)
                 )
             }
@@ -230,7 +253,7 @@ fun LoginScreen(
                 Text(
                     text = (uiState as LoginUiState.Error).message,
                     color = Color.Red,
-                    fontSize = 12.sp,
+                    fontSize = 14.sp,
                     modifier = Modifier
                         .padding(top = 16.dp)
                         .align(Alignment.CenterHorizontally)
@@ -239,7 +262,7 @@ fun LoginScreen(
 
             Text(
                 text = "Register",
-                fontSize = 12.sp,
+                fontSize = 18.sp,
                 color = headingColor,
                 modifier = Modifier
                     .padding(top = 16.dp)
@@ -253,5 +276,10 @@ fun LoginScreen(
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun LoginScreenPreview() {
-    LoginScreen()
+    LoginContent(
+        uiState = LoginUiState.Idle,
+        onLogin = { _, _ -> },
+        onNavigateToRegister = {},
+        onNavigateToForgotPassword = {}
+    )
 }

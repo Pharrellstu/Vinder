@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,6 +22,7 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,14 +34,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.vinted.auth.AuthRepository
-import com.example.vinted.auth.AuthUiState
-import com.example.vinted.auth.AuthViewModel
+import com.example.vinted.ui.models.RegistrationUiState
+import com.example.vinted.ui.models.RegistrationViewModel
 import com.example.vinted.ui.theme.boxDivColor
 import com.example.vinted.ui.theme.grayColor
 import com.example.vinted.ui.theme.headingColor
@@ -53,21 +55,32 @@ private val CARD_BORDER_COLOR = Color.Black.copy(alpha = 0.1f)
 
 @Composable
 fun RegisterScreen(
-    viewModel: AuthViewModel = viewModel(),
-    onRegisterSuccess: () -> Unit = {},
+    viewModel: RegistrationViewModel = viewModel(),
     onNavigateToLogin: () -> Unit = {}
 ) {
-    val usernameFieldState = rememberTextFieldState("")
+    val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.resetState()
+    }
+
+    RegisterContent(
+        uiState = uiState,
+        onRegister = viewModel::register,
+        onNavigateToLogin = onNavigateToLogin
+    )
+}
+
+@Composable
+private fun RegisterContent(
+    uiState: RegistrationUiState,
+    onRegister: (String, String, String, String) -> Unit,
+    onNavigateToLogin: () -> Unit
+) {
+    val nicknameFieldState = rememberTextFieldState("")
     val emailFieldState = rememberTextFieldState("")
     val passwordFieldState = rememberTextFieldState("")
     val confirmPasswordFieldState = rememberTextFieldState("")
-    val uiState by viewModel.uiState.collectAsState()
-
-    LaunchedEffect(uiState) {
-        if (uiState is AuthUiState.Success) {
-            onRegisterSuccess()
-        }
-    }
 
     Box(
         modifier = Modifier
@@ -77,7 +90,7 @@ fun RegisterScreen(
     ) {
         Column(
             modifier = Modifier
-                .width(340.dp)
+                .width(380.dp)
                 .wrapContentHeight()
                 .background(
                     color = Color(boxDivColor.value),
@@ -92,99 +105,148 @@ fun RegisterScreen(
         ) {
             Text(
                 text = "Vinder",
-                fontSize = 48.sp,
+                fontSize = 56.sp,
                 fontFamily = instrumentSerifNormal,
                 fontStyle = FontStyle.Italic,
                 color = headingColor,
                 style = TextStyle(
                     platformStyle = PlatformTextStyle(includeFontPadding = false)
+                ),
+                modifier = Modifier.clickable { onNavigateToLogin() }
+            )
+
+            if (uiState is RegistrationUiState.Success) {
+                RegistrationSuccessContent(
+                    email = (uiState as RegistrationUiState.Success).email,
+                    onNavigateToLogin = onNavigateToLogin
                 )
-            )
+            } else {
+                Text(
+                    text = "Register",
+                    fontSize = 20.sp,
+                    fontFamily = inter,
+                    fontStyle = FontStyle.Italic,
+                    color = headingColor
+                )
 
-            Text(
-                text = "Register",
-                fontSize = 20.sp,
-                fontFamily = inter,
-                fontStyle = FontStyle.Italic,
-                color = headingColor,
-                modifier = Modifier.padding(top = 8.dp)
-            )
+                InputField(
+                    state = nicknameFieldState,
+                    placeholder = "Nickname",
+                    topPadding = 20.dp
+                )
 
-            InputField(
-                state = emailFieldState,
-                placeholder = "Email",
-                topPadding = 20.dp
-            )
+                InputField(
+                    state = emailFieldState,
+                    placeholder = "Email",
+                    topPadding = 20.dp
+                )
 
-            InputField(
-                state = passwordFieldState,
-                placeholder = "Password",
-                topPadding = 20.dp,
-                masked = true
-            )
+                InputField(
+                    state = passwordFieldState,
+                    placeholder = "Password",
+                    topPadding = 20.dp,
+                    masked = true
+                )
 
-            InputField(
-                state = confirmPasswordFieldState,
-                placeholder = "Password Again",
-                topPadding = 20.dp,
-                masked = true
-            )
+                InputField(
+                    state = confirmPasswordFieldState,
+                    placeholder = "Password Again",
+                    topPadding = 20.dp,
+                    masked = true
+                )
 
-            PasswordStrengthBar(
-                password = passwordFieldState.text.toString(),
-                modifier = Modifier.padding(top = 16.dp)
-            )
-
-            Button(
-                onClick = {
-                    viewModel.register(
-                        emailFieldState.text.toString(),
-                        passwordFieldState.text.toString(),
-                        confirmPasswordFieldState.text.toString()
-                    )
-                },
-                enabled = uiState !is AuthUiState.Loading,
-                colors = ButtonDefaults.buttonColors(containerColor = headingColor),
-                modifier = Modifier
-                    .padding(top = 28.dp)
-                    .width(170.dp)
-                    .height(38.dp)
-            ) {
-                Text("Register")
-            }
-
-            if (uiState is AuthUiState.Loading) {
-                CircularProgressIndicator(
-                    color = headingColor,
+                PasswordStrengthBar(
+                    password = passwordFieldState.text.toString(),
                     modifier = Modifier
                         .padding(top = 16.dp)
-                        .size(24.dp)
                 )
-            }
 
-            if (uiState is AuthUiState.Error) {
-                Text(
-                    text = (uiState as AuthUiState.Error).message,
-                    color = Color.Red,
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(top = 16.dp)
-                )
-            }
+                Button(
+                    onClick = {
+                        onRegister(
+                            nicknameFieldState.text.toString(),
+                            emailFieldState.text.toString(),
+                            passwordFieldState.text.toString(),
+                            confirmPasswordFieldState.text.toString()
+                        )
+                    },
+                    enabled = uiState !is RegistrationUiState.Loading,
+                    colors = ButtonDefaults.buttonColors(containerColor = headingColor),
+                    modifier = Modifier
+                        .padding(top = 18.dp)
+                        .width(170.dp)
+                        .height(38.dp)
+                ) {
+                    Text("Register", fontSize = 18.sp)
+                }
 
-            Row(modifier = Modifier.padding(top = 16.dp)) {
-                Text(
-                    text = "Already have an account? ",
-                    fontSize = 12.sp,
-                    color = Color.Black
-                )
-                Text(
-                    text = "Log In",
-                    fontSize = 12.sp,
-                    color = headingColor,
-                    modifier = Modifier.clickable { onNavigateToLogin() }
-                )
+                if (uiState is RegistrationUiState.Loading) {
+                    CircularProgressIndicator(
+                        color = headingColor,
+                        modifier = Modifier
+                            .padding(top = 16.dp)
+                            .size(24.dp)
+                    )
+                }
+
+                if (uiState is RegistrationUiState.Error) {
+                    Text(
+                        text = (uiState as RegistrationUiState.Error).message,
+                        color = Color.Red,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(top = 18.dp)
+                    )
+                }
+
+                Row(modifier = Modifier.padding(top = 16.dp)) {
+                    Text(
+                        text = "Already have an account? ",
+                        fontSize = 16.sp,
+                        color = Color.Black
+                    )
+                    Text(
+                        text = "Log In",
+                        fontSize = 16.sp,
+                        color = headingColor,
+                        modifier = Modifier.clickable { onNavigateToLogin() }
+                    )
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun RegistrationSuccessContent(
+    email: String,
+    onNavigateToLogin: () -> Unit
+) {
+
+    Text(
+        text = "Check your email!",
+        fontSize = 20.sp,
+        fontFamily = inter,
+        color = headingColor,
+        textAlign = TextAlign.Center
+    )
+
+    Text(
+        text = "A confirmation link has been sent to\n$email",
+        fontSize = 13.sp,
+        color = Color.Black.copy(alpha = 0.7f),
+        textAlign = TextAlign.Center,
+        modifier = Modifier.padding(top = 12.dp)
+    )
+
+    Button(
+        onClick = onNavigateToLogin,
+        colors = ButtonDefaults.buttonColors(containerColor = headingColor),
+        modifier = Modifier
+            .padding(top = 28.dp)
+            .width(170.dp)
+            .height(38.dp)
+    ) {
+        Text("Back to Login")
     }
 }
 
@@ -260,15 +322,13 @@ private enum class PasswordStrength(val fillFraction: Float, val color: Color) {
     STRONG(1f, Color(0xFF4CAF50))
 }
 
+private const val TOTAL_PASSWORD_RULES = 4
+
 private fun ratePasswordStrength(password: String): PasswordStrength {
     if (password.isEmpty()) return PasswordStrength.EMPTY
 
-    val hasMinLength = password.length >= 8
-    val hasUppercase = password.any { it.isUpperCase() }
-    val hasDigit = password.any { it.isDigit() }
-    val hasSpecial = password.any { !it.isLetterOrDigit() }
-
-    val satisfiedRules = listOf(hasMinLength, hasUppercase, hasDigit, hasSpecial).count { it }
+    val satisfiedRules =
+        TOTAL_PASSWORD_RULES - RegistrationViewModel.findMissingPasswordRequirements(password).size
 
     return when {
         satisfiedRules >= 4 -> PasswordStrength.STRONG
@@ -280,5 +340,9 @@ private fun ratePasswordStrength(password: String): PasswordStrength {
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun RegisterScreenPreview() {
-    RegisterScreen(viewModel = AuthViewModel(AuthRepository()))
+    RegisterContent(
+        uiState = RegistrationUiState.Idle,
+        onRegister = { _, _, _, _ -> },
+        onNavigateToLogin = {}
+    )
 }
