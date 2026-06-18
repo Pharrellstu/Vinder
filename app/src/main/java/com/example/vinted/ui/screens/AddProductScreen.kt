@@ -33,8 +33,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.vinted.data.SessionManager
 import com.example.vinted.ui.models.AddProductUiState
 import com.example.vinted.ui.models.AddProductViewModel
+import com.example.vinted.ui.models.Product
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -65,6 +67,7 @@ private const val MAX_PHOTOS = 6
 @Composable
 fun AddProductScreen(
     onBack: () -> Unit = {},
+    onPosted: (Product) -> Unit = {},
     viewModel: AddProductViewModel = viewModel(),
 ) {
     var currentStep by remember { mutableStateOf(1) }
@@ -82,11 +85,22 @@ fun AddProductScreen(
     LaunchedEffect(uiState) {
         when (val state = uiState) {
             is AddProductUiState.Submitted -> {
+                // Build the Product for the just-created listing before clearing the
+                // form, then navigate straight to its detail page.
+                val postedProduct = Product(
+                    id = state.itemId.toString(),
+                    name = title,
+                    price = price.toFloatOrNull() ?: 0f,
+                    sellerInitial = "",
+                    sellerName = "",
+                    rating = 0f,
+                    sellerId = SessionManager.currentAccountId,
+                )
                 currentStep = 1
                 selectedPhotos.clear()
                 title = ""; description = ""; price = ""; category = ""; condition = ""
                 viewModel.resetState()
-                snackbarHostState.showSnackbar("Listing posted successfully!")
+                onPosted(postedProduct)
             }
             is AddProductUiState.Error -> {
                 snackbarHostState.showSnackbar(state.message)
@@ -456,7 +470,8 @@ private fun DetailsStep(
     condition: String, onConditionChange: (String) -> Unit,
     onNext: () -> Unit,
 ) {
-    val isNextEnabled = title.isNotBlank() && description.isNotBlank() && price.isNotBlank()
+    val isNextEnabled = title.isNotBlank() && description.isNotBlank() && price.isNotBlank() &&
+        category.isNotBlank() && condition.isNotBlank()
 
     Column(
         modifier = Modifier
