@@ -8,7 +8,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.example.vinted.ui.models.SplashState
 import com.example.vinted.ui.models.SplashViewModel
 import com.example.vinted.data.DialogueRepository
 import com.example.vinted.data.InboxBadge
@@ -37,11 +39,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
-        splashScreen.setKeepOnScreenCondition { !splashViewModel.isAppReady }
+        splashScreen.setKeepOnScreenCondition { splashViewModel.state is SplashState.Loading }
         enableEdgeToEdge()
         setContent {
             VintedTheme {
-                VinderApp()
+                VinderApp(splashViewModel)
             }
         }
     }
@@ -55,8 +57,14 @@ private enum class AuthScreen {
 }
 
 @Composable
-fun VinderApp() {
-    var authScreen by rememberSaveable { mutableStateOf(AuthScreen.LOGIN) }
+fun VinderApp(splashViewModel: SplashViewModel = viewModel()) {
+    val splashState = splashViewModel.state
+
+    if (splashState is SplashState.Loading) return
+
+    var authScreen by rememberSaveable {
+        mutableStateOf(if (splashState is SplashState.LoggedIn) AuthScreen.HOME else AuthScreen.LOGIN)
+    }
 
     when (authScreen) {
         AuthScreen.LOGIN -> LoginScreen(
