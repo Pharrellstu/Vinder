@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.vinted.data.DialogueRepository
 import com.example.vinted.data.IDialogueRepository
+import com.example.vinted.data.InboxBadge
 import com.example.vinted.data.SessionManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,8 +38,19 @@ class MessagesViewModel(
             _uiState.value = MessagesUiState.Loading
             runCatching {
                 repository.getConversations(accountId)
-            }.onSuccess { _uiState.value = MessagesUiState.Success(it) }
-             .onFailure { _uiState.value = MessagesUiState.Error(it.message ?: "Failed to load messages") }
+            }.onSuccess { convos ->
+                _uiState.value = MessagesUiState.Success(convos)
+                InboxBadge.unread.value = convos.sumOf { it.unreadCount }
+            }.onFailure { _uiState.value = MessagesUiState.Error(it.message ?: "Failed to load messages") }
+        }
+    }
+
+    /** Persist that the open conversation's incoming messages have been read. */
+    fun markRead(dialogueId: Int) {
+        val accountId = SessionManager.currentAccountId
+        if (accountId == -1) return
+        viewModelScope.launch {
+            runCatching { repository.markRead(dialogueId, accountId) }
         }
     }
 

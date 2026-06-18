@@ -11,4 +11,5 @@ data class Product(
     val sellerInitial: String,
     val sellerName: String,
     val rating: Float,
+    val sellerId: Int = -1,
 )

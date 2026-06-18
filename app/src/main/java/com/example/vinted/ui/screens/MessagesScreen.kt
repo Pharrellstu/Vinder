@@ -1,20 +1,26 @@
 package com.example.vinted.ui.screens
 
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -26,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,20 +42,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil3.compose.AsyncImage
 import com.example.vinted.ui.components.BottomNavBar
-import com.example.vinted.ui.components.InitialAvatar
 import com.example.vinted.ui.models.Conversation
 import com.example.vinted.ui.models.MessagesUiState
 import com.example.vinted.ui.models.MessagesViewModel
 import com.example.vinted.ui.theme.Grey11
+import com.example.vinted.ui.theme.Grey36
 import com.example.vinted.ui.theme.Grey57
 import com.example.vinted.ui.theme.Grey91
+import com.example.vinted.ui.theme.Grey95
 import com.example.vinted.ui.theme.VinderAzure
 import com.example.vinted.ui.theme.VintedTheme
 
@@ -61,26 +73,21 @@ fun MessagesScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+    // Reload on (re)entry so read state persists when returning to the inbox.
+    LaunchedEffect(Unit) { viewModel.load() }
+
     when (val state = uiState) {
         is MessagesUiState.Loading -> {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
-            ) {
-                CircularProgressIndicator()
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = VinderAzure)
             }
         }
 
         is MessagesUiState.Error -> {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
-            ) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(text = state.message, color = Grey57)
-                    TextButton(onClick = { viewModel.load() }) {
-                        Text("Retry")
-                    }
+                    TextButton(onClick = { viewModel.load() }) { Text("Retry") }
                 }
             }
         }
@@ -123,24 +130,27 @@ fun MessagesScreen(
                     BottomNavBar(
                         selectedIndex = 3,
                         onItemSelected = onTabSelected,
-                        inboxUnreadCount = conversations.sumOf { it.unreadCount },
                     )
                 },
             ) { padding ->
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                ) {
-                    items(conversations, key = { it.id }) { conversation ->
-                        ConversationRow(
-                            conversation = conversation,
-                            onClick = {
-                                viewModel.markRead(conversation.id)
-                                openConversationId = conversation.id
-                            },
-                        )
-                        HorizontalDivider(color = Grey91, modifier = Modifier.padding(start = 72.dp))
+                if (conversations.isEmpty()) {
+                    EmptyInbox(modifier = Modifier.fillMaxSize().padding(padding))
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(padding),
+                    ) {
+                        items(conversations, key = { it.id }) { conversation ->
+                            ConversationRow(
+                                conversation = conversation,
+                                onClick = {
+                                    viewModel.markRead(conversation.id)
+                                    openConversationId = conversation.id
+                                },
+                            )
+                            HorizontalDivider(color = Grey91, modifier = Modifier.padding(start = 88.dp))
+                        }
                     }
                 }
             }
@@ -149,43 +159,135 @@ fun MessagesScreen(
 }
 
 @Composable
+private fun EmptyInbox(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.padding(horizontal = 40.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(72.dp)
+                .clip(CircleShape)
+                .background(Grey95),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.ChatBubbleOutline,
+                contentDescription = null,
+                tint = Grey57,
+                modifier = Modifier.size(34.dp),
+            )
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        Text("No messages yet", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Grey11)
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = "When you contact a seller about an item, your conversations will show up here.",
+            fontSize = 13.sp,
+            color = Grey57,
+            lineHeight = 18.sp,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+@Composable
 private fun ConversationRow(
     conversation: Conversation,
     onClick: () -> Unit,
 ) {
+    val context = LocalContext.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.Top,
     ) {
-        InitialAvatar(initial = conversation.initial, color = conversation.avatarColor)
+        CoverThumbnail(
+            url = conversation.coverImageUrl,
+            fallbackColor = conversation.avatarColor,
+            initial = conversation.initial,
+        )
         Spacer(modifier = Modifier.size(12.dp))
+        // Middle: item title / from location / latest message
         Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = conversation.itemTitle,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = Grey11,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (conversation.fromLocation.isNotBlank()) {
+                Spacer(modifier = Modifier.size(1.dp))
                 Text(
-                    text = conversation.handle,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Grey11,
-                    modifier = Modifier.weight(1f),
+                    text = "from ${conversation.fromLocation}",
+                    fontSize = 12.sp,
+                    color = Grey57,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
-                Text(text = conversation.timeLabel, fontSize = 11.sp, color = Grey57)
             }
-            Spacer(modifier = Modifier.size(2.dp))
+            Spacer(modifier = Modifier.size(3.dp))
             Text(
                 text = conversation.lastMessage,
                 fontSize = 13.sp,
-                color = Grey57,
-                maxLines = 2,
+                color = Grey36,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                lineHeight = 18.sp,
             )
         }
-        if (conversation.unreadCount > 0) {
-            Spacer(modifier = Modifier.size(8.dp))
-            UnreadBadge(conversation.unreadCount)
+        Spacer(modifier = Modifier.size(8.dp))
+        // Right: share button + timeframe (+ unread badge)
+        Column(horizontalAlignment = Alignment.End) {
+            IconButton(
+                onClick = {
+                    val send = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, "Check out \"${conversation.itemTitle}\" on Vinder!")
+                    }
+                    context.startActivity(Intent.createChooser(send, "Share"))
+                },
+                modifier = Modifier.size(28.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Share,
+                    contentDescription = "Share",
+                    tint = Grey57,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+            Spacer(modifier = Modifier.size(6.dp))
+            Text(text = conversation.timeLabel, fontSize = 11.sp, color = Grey57)
+            if (conversation.unreadCount > 0) {
+                Spacer(modifier = Modifier.size(6.dp))
+                UnreadBadge(conversation.unreadCount)
+            }
+        }
+    }
+}
+
+@Composable
+private fun CoverThumbnail(url: String?, fallbackColor: Color, initial: String) {
+    Box(
+        modifier = Modifier
+            .size(60.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(fallbackColor),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (url.isNullOrBlank()) {
+            Text(text = initial, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        } else {
+            AsyncImage(
+                model = url,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
         }
     }
 }
@@ -212,7 +314,6 @@ private fun UnreadBadge(count: Int) {
 @Composable
 fun MessagesScreenPreview() {
     VintedTheme {
-        // Preview shows loading state; live data requires a running Supabase instance
         MessagesScreen()
     }
 }
