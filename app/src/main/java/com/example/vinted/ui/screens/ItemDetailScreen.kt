@@ -91,6 +91,7 @@ fun ItemDetailScreen(
     product: Product,
     onBack: () -> Unit = {},
     onViewSellerProfile: () -> Unit = {},
+    onMessageSeller: () -> Unit = {},
     viewModel: ItemDetailViewModel = viewModel(
         key = "item-${product.id}",
         factory = ItemDetailViewModelFactory(product.id.toInt(), product.sellerId),
@@ -169,7 +170,7 @@ fun ItemDetailScreen(
                     SellerProfileCard(
                         seller = seller,
                         onViewProfile = onViewSellerProfile,
-                        onMessageSeller = { notify("Messaging — coming soon") },
+                        onMessageSeller = onMessageSeller,
                     )
                 } else if (detailState is ItemDetailUiState.Error) {
                     Text(
