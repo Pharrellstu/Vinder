@@ -60,15 +60,22 @@ class ItemRepository : IItemRepository {
     }
 
     override suspend fun getCategoryId(categoryName: String): Int {
+        // decodeList().firstOrNull() rather than decodeSingle(): the lookup tables
+        // can contain duplicate names (from repeated seeding) and the name may be
+        // blank, both of which make decodeSingle() throw ("List is empty." / 406).
         return client.from("item_category")
             .select { filter { eq("category_name", categoryName) } }
-            .decodeSingle<ItemCategoryEntity>().categoryId
+            .decodeList<ItemCategoryEntity>()
+            .firstOrNull()?.categoryId
+            ?: error("Category \"$categoryName\" is not available.")
     }
 
     override suspend fun getConditionId(conditionName: String): Int {
         return client.from("item_condition")
             .select { filter { eq("item_condition_name", conditionName) } }
-            .decodeSingle<ItemConditionEntity>().conditionId
+            .decodeList<ItemConditionEntity>()
+            .firstOrNull()?.conditionId
+            ?: error("Condition \"$conditionName\" is not available.")
     }
 
     override suspend fun insertItem(

@@ -166,7 +166,13 @@ private fun MainTabs(onLoggedOut: () -> Unit) {
     }
 
     if (showAddProduct) {
-        AddProductScreen(onBack = { showAddProduct = false })
+        AddProductScreen(
+            onBack = { showAddProduct = false },
+            onPosted = { product ->
+                showAddProduct = false
+                openProduct = product
+            },
+        )
         return
     }
 
