@@ -17,7 +17,7 @@ import kotlinx.coroutines.withContext
 sealed class AddProductUiState {
     object Idle : AddProductUiState()
     object Uploading : AddProductUiState()
-    object Submitted : AddProductUiState()
+    data class Submitted(val itemId: Int) : AddProductUiState()
     data class Error(val message: String) : AddProductUiState()
 }
 
@@ -45,6 +45,14 @@ class AddProductViewModel(
         val priceDouble = price.toDoubleOrNull()
         if (priceDouble == null || priceDouble <= 0) {
             _uiState.value = AddProductUiState.Error("Invalid price")
+            return
+        }
+        if (category.isBlank()) {
+            _uiState.value = AddProductUiState.Error("Please choose a category")
+            return
+        }
+        if (condition.isBlank()) {
+            _uiState.value = AddProductUiState.Error("Please choose a condition")
             return
         }
 
@@ -75,8 +83,9 @@ class AddProductViewModel(
                 }
                 // All photos uploaded — flip listing to visible
                 repository.updateItemToListed(itemId)
-            }.onSuccess {
-                _uiState.value = AddProductUiState.Submitted
+                itemId
+            }.onSuccess { newItemId ->
+                _uiState.value = AddProductUiState.Submitted(newItemId)
             }.onFailure {
                 _uiState.value = AddProductUiState.Error(it.message ?: "Failed to post listing")
             }

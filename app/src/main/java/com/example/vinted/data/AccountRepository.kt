@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import com.example.vinted.data.dto.AccountEntity
 import com.example.vinted.data.dto.AccountSideInfoEntity
 import com.example.vinted.data.dto.ItemEntity
+import com.example.vinted.data.dto.ItemPhotoEntity
 import com.example.vinted.ui.initialisers.SupabaseClientInitialiser
 import com.example.vinted.ui.models.ListingItem
 import com.example.vinted.ui.models.UserProfile
@@ -74,7 +75,7 @@ class AccountRepository : IAccountRepository {
     }
 
     override suspend fun getListedItems(accountId: Int): List<ListingItem> {
-        return client.from("item")
+        val items = client.from("item")
             .select {
                 filter {
                     eq("seller_id", accountId)
@@ -82,17 +83,11 @@ class AccountRepository : IAccountRepository {
                 }
             }
             .decodeList<ItemEntity>()
-            .map { item ->
-                ListingItem(
-                    id = item.itemId.toString(),
-                    price = item.price.roundToInt(),
-                    bgColor = ITEM_DEFAULT_BG_COLOR,
-                )
-            }
+        return items.toListingItems()
     }
 
     override suspend fun getSoldItems(accountId: Int): List<ListingItem> {
-        return client.from("item")
+        val items = client.from("item")
             .select {
                 filter {
                     eq("seller_id", accountId)
@@ -100,13 +95,29 @@ class AccountRepository : IAccountRepository {
                 }
             }
             .decodeList<ItemEntity>()
-            .map { item ->
-                ListingItem(
-                    id = item.itemId.toString(),
-                    price = item.price.roundToInt(),
-                    bgColor = ITEM_DEFAULT_BG_COLOR,
-                )
-            }
+        return items.toListingItems()
+    }
+
+    private suspend fun List<ItemEntity>.toListingItems(): List<ListingItem> {
+        val covers = coverUrlsByItem(map { it.itemId })
+        return map { item ->
+            ListingItem(
+                id = item.itemId.toString(),
+                price = item.price.roundToInt(),
+                bgColor = ITEM_DEFAULT_BG_COLOR,
+                coverUrl = covers[item.itemId],
+            )
+        }
+    }
+
+    /** Cover photo per item = the first uploaded photo (lowest item_photo_id). */
+    private suspend fun coverUrlsByItem(itemIds: List<Int>): Map<Int, String> {
+        if (itemIds.isEmpty()) return emptyMap()
+        return client.from("item_photo")
+            .select { filter { isIn("item_id", itemIds) } }
+            .decodeList<ItemPhotoEntity>()
+            .groupBy { it.itemId }
+            .mapValues { (_, photos) -> photos.minByOrNull { it.itemPhotoId }!!.photoUrl }
     }
 
     override suspend fun getFollowerCount(accountId: Int): Int {
