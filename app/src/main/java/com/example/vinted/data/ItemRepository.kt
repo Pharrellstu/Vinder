@@ -4,13 +4,17 @@ import com.example.vinted.data.dto.AccountEntity
 import com.example.vinted.data.dto.ItemCategoryEntity
 import com.example.vinted.data.dto.ItemConditionEntity
 import com.example.vinted.data.dto.ItemEntity
+import com.example.vinted.data.dto.ItemOfferEntity
 import com.example.vinted.data.dto.ItemPhotoEntity
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import com.example.vinted.ui.initialisers.SupabaseClientInitialiser
+import com.example.vinted.ui.models.OfferWithDetails
 import com.example.vinted.ui.models.Product
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.storage.storage
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 interface IItemRepository {
     suspend fun getFeedItems(): List<Product>
@@ -32,6 +36,8 @@ interface IItemRepository {
     suspend fun updateItemToListed(itemId: Int)
     suspend fun uploadPhoto(itemId: Int, index: Int, bytes: ByteArray): String
     suspend fun insertItemPhoto(itemId: Int, photoUrl: String)
+    suspend fun getOffersForSeller(sellerId: Int): List<OfferWithDetails>
+    suspend fun updateOfferStatus(offerId: Int, statusId: Int)
 }
 
 @Serializable
@@ -74,17 +80,16 @@ class ItemRepository : IItemRepository {
         price: Double,
     ): Int {
         val result = client.from("item").insert(
-            mapOf(
-                "seller_id" to sellerId,
-                "item_category_id" to categoryId,
-                "item_condition_id" to conditionId,
-                "item_name" to name,
-                "item_description" to description,
-                "item_price" to price,
-                "is_listed" to false,
-                "is_sold" to false,
-                "created_at" to java.time.Instant.now().toString(),
-            )
+            buildJsonObject {
+                put("seller_id", sellerId)
+                put("item_category_id", categoryId)
+                put("item_condition_id", conditionId)
+                put("item_name", name)
+                put("item_description", description)
+                put("item_price", price)
+                put("is_listed", false)
+                put("is_sold", false)
+            }
         ) { select() }
         return result.decodeSingle<ItemEntity>().itemId
     }
@@ -103,7 +108,10 @@ class ItemRepository : IItemRepository {
 
     override suspend fun insertItemPhoto(itemId: Int, photoUrl: String) {
         client.from("item_photo").insert(
-            mapOf("item_id" to itemId, "photo_url" to photoUrl)
+            buildJsonObject {
+                put("item_id", itemId)
+                put("photo_url", photoUrl)
+            }
         )
     }
 
@@ -129,6 +137,48 @@ class ItemRepository : IItemRepository {
 
     override suspend fun createOffer(itemId: Int, creatorId: Int, offerPrice: Double) {
         client.from("item_offer").insert(OfferInsert(itemId, creatorId, offerPrice))
+    }
+
+    override suspend fun getOffersForSeller(sellerId: Int): List<OfferWithDetails> {
+        val sellerItems = client.from("item")
+            .select { filter { eq("seller_id", sellerId) } }
+            .decodeList<ItemEntity>()
+
+        if (sellerItems.isEmpty()) return emptyList()
+
+        val itemIds = sellerItems.map { it.itemId }
+        val itemNameMap = sellerItems.associateBy({ it.itemId }, { it.name })
+
+        val offers = client.from("item_offer")
+            .select { filter { isIn("item_id", itemIds) } }
+            .decodeList<ItemOfferEntity>()
+
+        if (offers.isEmpty()) return emptyList()
+
+        val buyerIds = offers.map { it.offerCreatorId }.distinct()
+        val buyerMap = client.from("account")
+            .select { filter { isIn("account_id", buyerIds) } }
+            .decodeList<AccountEntity>()
+            .associateBy { it.accountId }
+
+        return offers.map { offer ->
+            OfferWithDetails(
+                offerId = offer.itemOfferId,
+                itemId = offer.itemId,
+                itemName = itemNameMap[offer.itemId] ?: "Unknown item",
+                buyerId = offer.offerCreatorId,
+                buyerName = buyerMap[offer.offerCreatorId]?.accountName ?: "Unknown buyer",
+                offerPrice = offer.offerPrice,
+                statusId = offer.offerStatusId,
+                createdAt = offer.createdAt,
+            )
+        }
+    }
+
+    override suspend fun updateOfferStatus(offerId: Int, statusId: Int) {
+        client.from("item_offer").update(mapOf("offer_status_id" to statusId)) {
+            filter { eq("item_offer_id", offerId) }
+        }
     }
 
     override suspend fun getFeedItems(): List<Product> {

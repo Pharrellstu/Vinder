@@ -1,10 +1,12 @@
 package com.example.vinted.ui.models
 
 import androidx.lifecycle.ViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
+import androidx.lifecycle.viewModelScope
+import com.example.vinted.data.NotificationPreferences
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 
 /** A single switchable notification preference. */
 enum class NotificationType(
@@ -33,12 +35,16 @@ data class NotificationSettingsUiState(
 
 class NotificationSettingsViewModel : ViewModel() {
 
-    private val _uiState = MutableStateFlow(NotificationSettingsUiState())
-    val uiState: StateFlow<NotificationSettingsUiState> = _uiState.asStateFlow()
+    val uiState: StateFlow<NotificationSettingsUiState> =
+        NotificationPreferences.enabled
+            .map { NotificationSettingsUiState(it) }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = NotificationSettingsUiState(NotificationPreferences.enabled.value),
+            )
 
     fun setEnabled(type: NotificationType, enabled: Boolean) {
-        _uiState.update { state ->
-            state.copy(enabled = state.enabled + (type to enabled))
-        }
+        NotificationPreferences.setEnabled(type, enabled)
     }
 }

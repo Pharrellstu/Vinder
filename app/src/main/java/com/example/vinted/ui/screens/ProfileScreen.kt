@@ -48,6 +48,8 @@ fun ProfileScreen(
     onTabSelected: (Int) -> Unit = {},
     onEditProfile: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
+    onShowOffers: () -> Unit = {},
+    onShowOrders: () -> Unit = {},
     accountId: Int? = null,
     viewModel: ProfileViewModel = viewModel(
         factory = object : androidx.lifecycle.ViewModelProvider.Factory {
@@ -115,6 +117,8 @@ fun ProfileScreen(
                         ProfileActionButtons(
                             onEditProfile = onEditProfile,
                             onShareProfile = { shareProfile(context, state.profile.handle) },
+                            onShowOffers = onShowOffers,
+                            onShowOrders = onShowOrders,
                         )
                     }
                     item {
@@ -242,29 +246,60 @@ private fun ProfileAvatar(initial: String, color: Color, avatarUrl: String? = nu
 }
 
 @Composable
-private fun ProfileActionButtons(onEditProfile: () -> Unit, onShareProfile: () -> Unit) {
-    Row(
+private fun ProfileActionButtons(
+    onEditProfile: () -> Unit,
+    onShareProfile: () -> Unit,
+    onShowOffers: () -> Unit,
+    onShowOrders: () -> Unit,
+) {
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .padding(top = 10.dp, bottom = 22.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        ActionButton(
-            label = "Edit profile",
-            bgColor = Color.White,
-            textColor = Color.Black,
-            borderColor = Grey91,
-            onClick = onEditProfile,
-            modifier = Modifier.weight(1f),
-        )
-        ActionButton(
-            label = "Share profile",
-            bgColor = VinderAzure,
-            textColor = Color.White,
-            onClick = onShareProfile,
-            modifier = Modifier.weight(1f),
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ActionButton(
+                label = "Edit profile",
+                bgColor = Color.White,
+                textColor = Color.Black,
+                borderColor = Grey91,
+                onClick = onEditProfile,
+                modifier = Modifier.weight(1f),
+            )
+            ActionButton(
+                label = "Share profile",
+                bgColor = VinderAzure,
+                textColor = Color.White,
+                onClick = onShareProfile,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ActionButton(
+                label = "Offers received",
+                bgColor = Color.White,
+                textColor = Color.Black,
+                borderColor = Grey91,
+                onClick = onShowOffers,
+                modifier = Modifier.weight(1f),
+            )
+            ActionButton(
+                label = "My orders",
+                bgColor = Color.White,
+                textColor = Color.Black,
+                borderColor = Grey91,
+                onClick = onShowOrders,
+                modifier = Modifier.weight(1f),
+            )
+        }
     }
 }
 

@@ -11,11 +11,15 @@ import com.example.vinted.ui.initialisers.SupabaseClientInitialiser
 import com.example.vinted.ui.models.ChatMessage
 import com.example.vinted.ui.models.Conversation
 import io.github.jan.supabase.postgrest.from
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 interface IDialogueRepository {
     suspend fun getConversations(accountId: Int): List<Conversation>
+    suspend fun getOrCreateDialogue(accountId: Int, otherAccountId: Int, itemId: Int?): Conversation
     suspend fun getMessages(dialogueId: Int): List<ChatMessage>
     suspend fun sendMessage(dialogueId: Int, senderId: Int, text: String)
+    suspend fun markDialogueRead(dialogueId: Int, accountId: Int)
     suspend fun markRead(dialogueId: Int, accountId: Int)
     suspend fun getUnreadCount(accountId: Int): Int
 }
@@ -118,6 +122,94 @@ class DialogueRepository : IDialogueRepository {
         }
     }
 
+    override suspend fun getOrCreateDialogue(
+        accountId: Int,
+        otherAccountId: Int,
+        itemId: Int?,
+    ): Conversation {
+        // A dialogue exists in either direction between the two participants.
+        val asCreator = client.from("dialogue")
+            .select {
+                filter {
+                    eq("dialogue_creator_id", accountId)
+                    eq("dialogue_receiver_id", otherAccountId)
+                }
+            }
+            .decodeList<DialogueEntity>()
+        val asReceiver = client.from("dialogue")
+            .select {
+                filter {
+                    eq("dialogue_creator_id", otherAccountId)
+                    eq("dialogue_receiver_id", accountId)
+                }
+            }
+            .decodeList<DialogueEntity>()
+        val existing = asCreator + asReceiver
+
+        // Prefer a thread already tied to this item; otherwise reuse any existing
+        // thread between the two users, and only create a new one if none exists.
+        val dialogue = existing.firstOrNull { itemId != null && it.itemId == itemId }
+            ?: existing.firstOrNull()
+            // `item_id` is intentionally omitted: it's optional thread metadata and is
+            // absent from the deployed `dialogue` schema, so naming it here is rejected.
+            ?: client.from("dialogue").insert(
+                buildJsonObject {
+                    put("dialogue_creator_id", accountId)
+                    put("dialogue_receiver_id", otherAccountId)
+                }
+            ) { select() }.decodeSingle<DialogueEntity>()
+
+        val otherAccount = client.from("account")
+            .select { filter { eq("account_id", otherAccountId) } }
+            .decodeList<AccountEntity>()
+            .firstOrNull()
+        val location = client.from("account_side_information")
+            .select { filter { eq("account_id", otherAccountId) } }
+            .decodeList<AccountSideInfoEntity>()
+            .firstOrNull()
+            ?.location.orEmpty()
+        val item = dialogue.itemId?.let { id ->
+            client.from("item")
+                .select { filter { eq("item_id", id) } }
+                .decodeList<ItemEntity>()
+                .firstOrNull()
+        }
+        val coverUrl = dialogue.itemId?.let { id ->
+            client.from("item_photo")
+                .select { filter { eq("item_id", id) } }
+                .decodeList<ItemPhotoEntity>()
+                .firstOrNull()?.photoUrl
+        }
+
+        val msgDtos = client.from("dialogue_message")
+            .select { filter { eq("dialogue_id", dialogue.dialogueId) } }
+            .decodeList<DialogueMessageEntity>()
+        val messages = msgDtos.map { msg ->
+            ChatMessage(
+                id = msg.messageId.toString(),
+                text = msg.text,
+                isFromMe = msg.senderId == accountId,
+                time = msg.timestamp.take(16).replace("T", " "),
+            )
+        }
+
+        val otherName = otherAccount?.accountName ?: "Unknown"
+        return Conversation(
+            id = dialogue.dialogueId.toString(),
+            dialogueId = dialogue.dialogueId,
+            handle = otherName,
+            initial = otherName.firstOrNull()?.uppercase() ?: "?",
+            avatarColor = avatarColors.first(),
+            lastMessage = messages.lastOrNull()?.text ?: "",
+            timeLabel = messages.lastOrNull()?.time?.takeLast(5) ?: "",
+            unreadCount = msgDtos.count { it.senderId != accountId && !it.isRead },
+            itemTitle = item?.name ?: otherName,
+            fromLocation = location,
+            coverImageUrl = coverUrl,
+            messages = messages,
+        )
+    }
+
     override suspend fun getMessages(dialogueId: Int): List<ChatMessage> {
         return client.from("dialogue_message")
             .select { filter { eq("dialogue_id", dialogueId) } }
@@ -132,15 +224,28 @@ class DialogueRepository : IDialogueRepository {
             }
     }
 
+    override suspend fun markDialogueRead(dialogueId: Int, accountId: Int) {
+        // Flag every incoming (not-from-me) message in this dialogue as read. A homogeneous
+        // Map<String, Boolean> serializes fine, unlike a mixed-type map.
+        client.from("dialogue_message").update(mapOf("is_read" to true)) {
+            filter {
+                eq("dialogue_id", dialogueId)
+                neq("sender_id", accountId)
+            }
+        }
+    }
+
     override suspend fun sendMessage(dialogueId: Int, senderId: Int, text: String) {
+        // Build a JsonObject rather than a Map<String, Any>: kotlinx.serialization has no
+        // serializer for `Any`, so a heterogeneous map throws during serialization before the
+        // request is ever sent. `timestamp` is omitted so the DB default (now()) applies.
         client.from("dialogue_message").insert(
-            mapOf(
-                "dialogue_id" to dialogueId,
-                "sender_id" to senderId,
-                "message_text" to text,
-                "timestamp" to java.time.Instant.now().toString(),
-                "is_read" to false,
-            )
+            buildJsonObject {
+                put("dialogue_id", dialogueId)
+                put("sender_id", senderId)
+                put("message_text", text)
+                put("is_read", false)
+            }
         )
     }
 

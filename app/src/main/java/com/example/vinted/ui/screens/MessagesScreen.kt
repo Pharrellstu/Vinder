@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
-import com.example.vinted.data.InboxBadge
 import com.example.vinted.ui.components.BottomNavBar
 import com.example.vinted.ui.models.Conversation
 import com.example.vinted.ui.models.MessagesUiState
@@ -70,16 +69,18 @@ fun MessagesScreen(
         }
 
         is MessagesUiState.Success -> {
-            val conversations = remember(state.conversations) { state.conversations.toMutableStateList() }
+            val conversations = state.conversations
             var openConversationId by remember { mutableStateOf<String?>(null) }
 
             openConversationId?.let { id ->
-                val conversation = conversations.first { it.id == id }
-                ChatScreen(
-                    conversation = conversation,
-                    onBack = { openConversationId = null },
-                )
-                return
+                val conversation = conversations.firstOrNull { it.id == id }
+                if (conversation != null) {
+                    ChatScreen(
+                        conversation = conversation,
+                        onBack = { openConversationId = null },
+                    )
+                    return
+                }
             }
 
             Scaffold(
@@ -120,12 +121,7 @@ fun MessagesScreen(
                             ConversationRow(
                                 conversation = conversation,
                                 onClick = {
-                                    val index = conversations.indexOfFirst { it.id == conversation.id }
-                                    if (conversation.unreadCount > 0) {
-                                        conversations[index] = conversation.copy(unreadCount = 0)
-                                    }
-                                    InboxBadge.unread.value = conversations.sumOf { it.unreadCount }
-                                    viewModel.markRead(conversation.dialogueId)
+                                    viewModel.markRead(conversation.id)
                                     openConversationId = conversation.id
                                 },
                             )
