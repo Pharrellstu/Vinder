@@ -60,6 +60,7 @@ fun ItemDetailScreen(
     onBack: () -> Unit = {},
     onViewSellerProfile: () -> Unit = {},
     onMessageSeller: () -> Unit = {},
+    onEditListing: () -> Unit = {},
     viewModel: ItemDetailViewModel = viewModel(
         key = "item-${product.id}",
         factory = ItemDetailViewModelFactory(product.id.toInt(), product.sellerId),
@@ -96,7 +97,7 @@ fun ItemDetailScreen(
         },
         bottomBar = {
             if (isOwnListing) {
-                OwnListingBottomBar()
+                OwnListingBottomBar(onEdit = onEditListing)
             } else {
                 ItemDetailBottomBar(
                     onMakeOffer = { showOfferSheet = true },
@@ -144,6 +145,7 @@ fun ItemDetailScreen(
                         seller = seller,
                         onViewProfile = onViewSellerProfile,
                         onMessageSeller = onMessageSeller,
+                        canMessage = !isOwnListing,
                     )
                 } else if (detailState is ItemDetailUiState.Error) {
                     Text(
@@ -390,22 +392,32 @@ private fun ItemDetailBottomBar(onMakeOffer: () -> Unit, onBuyNow: () -> Unit) {
 }
 
 @Composable
-private fun OwnListingBottomBar() {
+private fun OwnListingBottomBar(onEdit: () -> Unit) {
     Column(modifier = Modifier.background(Color.White)) {
         HorizontalDivider(color = Grey91)
-        Box(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
                 .padding(16.dp),
-            contentAlignment = Alignment.Center,
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
                 text = "This is your listing",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
                 color = Grey57,
+                modifier = Modifier.weight(1f),
             )
+            Button(
+                onClick = onEdit,
+                modifier = Modifier.height(50.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = VinderAzure, contentColor = Color.White),
+            ) {
+                Text(text = "Edit listing", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            }
         }
     }
 }

@@ -30,8 +30,11 @@ import com.example.vinted.ui.components.BottomNavBar
 import com.example.vinted.ui.components.ProfileListingGrid
 import com.example.vinted.ui.components.ProfileStatsCard
 import com.example.vinted.ui.components.ProfileTabRow
+import com.example.vinted.data.SessionManager
+import com.example.vinted.ui.models.ListingItem
 import com.example.vinted.ui.models.ProfileUiState
 import com.example.vinted.ui.models.ProfileViewModel
+import com.example.vinted.ui.models.Product
 import com.example.vinted.ui.models.UserProfile
 import com.example.vinted.ui.theme.Grey11
 import com.example.vinted.ui.theme.Grey36
@@ -51,6 +54,8 @@ fun ProfileScreen(
     onShowOffers: () -> Unit = {},
     onShowOrders: () -> Unit = {},
     onShowWishlist: () -> Unit = {},
+    onShowMyListings: () -> Unit = {},
+    onOpenListing: (Product) -> Unit = {},
     accountId: Int? = null,
     viewModel: ProfileViewModel = viewModel(
         factory = object : androidx.lifecycle.ViewModelProvider.Factory {
@@ -121,6 +126,7 @@ fun ProfileScreen(
                             onShowOffers = onShowOffers,
                             onShowOrders = onShowOrders,
                             onShowWishlist = onShowWishlist,
+                            onShowMyListings = onShowMyListings,
                         )
                     }
                     item {
@@ -135,6 +141,7 @@ fun ProfileScreen(
                             ProfileListingGrid(
                                 listings = state.listings,
                                 modifier = Modifier.padding(top = 10.dp),
+                                onListingClick = { onOpenListing(it.toProduct()) },
                             )
                         }
                     } else if (selectedTab == 1) {
@@ -142,6 +149,7 @@ fun ProfileScreen(
                             ProfileListingGrid(
                                 listings = state.soldItems,
                                 modifier = Modifier.padding(top = 10.dp),
+                                onListingClick = { onOpenListing(it.toProduct()) },
                             )
                         }
                     }
@@ -254,6 +262,7 @@ private fun ProfileActionButtons(
     onShowOffers: () -> Unit,
     onShowOrders: () -> Unit,
     onShowWishlist: () -> Unit,
+    onShowMyListings: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -303,16 +312,44 @@ private fun ProfileActionButtons(
                 modifier = Modifier.weight(1f),
             )
         }
-        ActionButton(
-            label = "My wishlist",
-            bgColor = Color.White,
-            textColor = Color.Black,
-            borderColor = Grey91,
-            onClick = onShowWishlist,
+        Row(
             modifier = Modifier.fillMaxWidth(),
-        )
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ActionButton(
+                label = "My listings",
+                bgColor = Color.White,
+                textColor = Color.Black,
+                borderColor = Grey91,
+                onClick = onShowMyListings,
+                modifier = Modifier.weight(1f),
+            )
+            ActionButton(
+                label = "Wishlist",
+                bgColor = Color.White,
+                textColor = Color.Black,
+                borderColor = Grey91,
+                onClick = onShowWishlist,
+                modifier = Modifier.weight(1f),
+            )
+        }
     }
 }
+
+/**
+ * Builds the minimal [Product] the Item Detail screen needs to open a profile listing.
+ * The detail screen fetches photos/description/seller by id; since this is the signed-in
+ * user's own profile, the seller is the current account.
+ */
+private fun ListingItem.toProduct(): Product = Product(
+    id = id,
+    name = name,
+    price = price.toFloat(),
+    sellerInitial = "",
+    sellerName = "",
+    rating = 0f,
+    sellerId = SessionManager.currentAccountId,
+)
 
 private fun shareProfile(context: Context, handle: String) {
     val send = Intent(Intent.ACTION_SEND).apply {

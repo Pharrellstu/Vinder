@@ -2,6 +2,7 @@ package com.example.vinted.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -35,12 +36,13 @@ import com.example.vinted.ui.theme.Grey91
 private val cardShape = RoundedCornerShape(10.dp)
 
 @Composable
-fun SearchResultCard(product: Product, modifier: Modifier = Modifier) {
+fun SearchResultCard(product: Product, onClick: () -> Unit = {}, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .clip(cardShape)
             .background(Color.White)
-            .border(1.dp, Grey91, cardShape),
+            .border(1.dp, Grey91, cardShape)
+            .clickable(onClick = onClick),
     ) {
         Box(
             modifier = Modifier

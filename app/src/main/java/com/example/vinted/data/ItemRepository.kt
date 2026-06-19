@@ -10,10 +10,13 @@ import com.example.vinted.data.dto.ItemPhotoEntity
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import com.example.vinted.ui.initialisers.SupabaseClientInitialiser
+import com.example.vinted.ui.models.EditableItem
+import com.example.vinted.ui.models.MyListing
 import com.example.vinted.ui.models.OfferWithDetails
 import com.example.vinted.ui.models.Product
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.storage.storage
+import kotlin.math.roundToInt
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
@@ -38,7 +41,21 @@ interface IItemRepository {
     ): Int
     suspend fun updateItemToListed(itemId: Int)
     suspend fun uploadPhoto(itemId: Int, index: Int, bytes: ByteArray): String
+    suspend fun uploadPhotoUnique(itemId: Int, bytes: ByteArray): String
     suspend fun insertItemPhoto(itemId: Int, photoUrl: String)
+    suspend fun getMyListings(sellerId: Int): List<MyListing>
+    suspend fun deleteItem(itemId: Int)
+    suspend fun updateItem(
+        itemId: Int,
+        name: String,
+        description: String,
+        price: Double,
+        categoryId: Int,
+        conditionId: Int,
+    )
+    suspend fun getItemForEdit(itemId: Int): EditableItem
+    suspend fun getItemPhotoRows(itemId: Int): List<ItemPhotoEntity>
+    suspend fun deleteItemPhoto(photoId: Int, photoUrl: String)
     suspend fun getOffersForSeller(sellerId: Int): List<OfferWithDetails>
     suspend fun updateOfferStatus(offerId: Int, statusId: Int)
     suspend fun getFavoriteItemIds(accountId: Int): Set<Int>
@@ -135,6 +152,14 @@ class ItemRepository : IItemRepository {
 
     override suspend fun uploadPhoto(itemId: Int, index: Int, bytes: ByteArray): String {
         val path = "items/$itemId/photo_$index.jpg"
+        client.storage["item-photos"].upload(path, bytes)
+        return client.storage["item-photos"].publicUrl(path)
+    }
+
+    // Edit-mode uploads use a unique name so they never clobber an item's existing
+    // photo_$index.jpg files (which the create flow names by position).
+    override suspend fun uploadPhotoUnique(itemId: Int, bytes: ByteArray): String {
+        val path = "items/$itemId/photo_${System.currentTimeMillis()}.jpg"
         client.storage["item-photos"].upload(path, bytes)
         return client.storage["item-photos"].publicUrl(path)
     }
@@ -265,6 +290,98 @@ class ItemRepository : IItemRepository {
                 eq("item_id", itemId)
             }
         }
+    }
+
+    override suspend fun getMyListings(sellerId: Int): List<MyListing> {
+        val items = client.from("item")
+            .select { filter { eq("seller_id", sellerId) } }
+            .decodeList<ItemEntity>()
+        if (items.isEmpty()) return emptyList()
+
+        val coverUrlByItem = coverUrlsByItem(items.map { it.itemId })
+        // Newest first so a just-posted item appears at the top.
+        return items.sortedByDescending { it.itemId }.map { item ->
+            MyListing(
+                itemId = item.itemId,
+                name = item.name,
+                price = item.price.roundToInt(),
+                coverUrl = coverUrlByItem[item.itemId],
+                isSold = item.isSold,
+            )
+        }
+    }
+
+    override suspend fun deleteItem(itemId: Int) {
+        // Remove storage objects first (DB cascade drops the item_photo rows for us).
+        val photos = runCatching { getItemPhotoRows(itemId) }.getOrDefault(emptyList())
+        photos.forEach { removeStorageObject(it.photoUrl) }
+        client.from("item").delete { filter { eq("item_id", itemId) } }
+    }
+
+    override suspend fun updateItem(
+        itemId: Int,
+        name: String,
+        description: String,
+        price: Double,
+        categoryId: Int,
+        conditionId: Int,
+    ) {
+        client.from("item").update(
+            buildJsonObject {
+                put("item_name", name)
+                put("item_description", description)
+                put("item_price", price)
+                put("item_category_id", categoryId)
+                put("item_condition_id", conditionId)
+            }
+        ) {
+            filter { eq("item_id", itemId) }
+        }
+    }
+
+    override suspend fun getItemForEdit(itemId: Int): EditableItem {
+        val item = client.from("item")
+            .select { filter { eq("item_id", itemId) } }
+            .decodeSingle<ItemEntity>()
+
+        val categoryName = client.from("item_category")
+            .select { filter { eq("item_category_id", item.categoryId) } }
+            .decodeList<ItemCategoryEntity>()
+            .firstOrNull()?.name ?: ""
+
+        val conditionName = client.from("item_condition")
+            .select { filter { eq("item_condition_id", item.conditionId) } }
+            .decodeList<ItemConditionEntity>()
+            .firstOrNull()?.name ?: ""
+
+        return EditableItem(
+            itemId = item.itemId,
+            name = item.name,
+            description = item.description,
+            price = item.price,
+            category = categoryName,
+            condition = conditionName,
+            photos = getItemPhotoRows(itemId),
+        )
+    }
+
+    override suspend fun getItemPhotoRows(itemId: Int): List<ItemPhotoEntity> {
+        return client.from("item_photo")
+            .select { filter { eq("item_id", itemId) } }
+            .decodeList<ItemPhotoEntity>()
+            .sortedBy { it.itemPhotoId }
+    }
+
+    override suspend fun deleteItemPhoto(photoId: Int, photoUrl: String) {
+        client.from("item_photo").delete { filter { eq("item_photo_id", photoId) } }
+        removeStorageObject(photoUrl)
+    }
+
+    /** Best-effort removal of a stored object given its public URL; never throws. */
+    private suspend fun removeStorageObject(publicUrl: String) {
+        val path = publicUrl.substringAfter("/item-photos/", "")
+        if (path.isBlank()) return
+        runCatching { client.storage["item-photos"].delete(listOf(path)) }
     }
 
     private suspend fun buildProducts(items: List<ItemEntity>, favoriteItemIds: Set<Int>): List<Product> {

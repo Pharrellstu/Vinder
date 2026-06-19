@@ -106,6 +106,7 @@ class AccountRepository : IAccountRepository {
                 price = item.price.roundToInt(),
                 bgColor = ITEM_DEFAULT_BG_COLOR,
                 coverUrl = covers[item.itemId],
+                name = item.name,
             )
         }
     }

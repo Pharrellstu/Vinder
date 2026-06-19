@@ -57,6 +57,7 @@ private fun SortOrder.next(): SortOrder = when (this) {
 @Composable
 fun SearchResultsScreen(
     onTabSelected: (Int) -> Unit = {},
+    onProductClick: (Product) -> Unit = {},
     viewModel: SearchResultsViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -119,6 +120,7 @@ fun SearchResultsScreen(
                     SearchResultsGrid(
                         products = sortedResults,
                         modifier = Modifier.fillMaxSize(),
+                        onProductClick = onProductClick,
                     )
                 }
             }
