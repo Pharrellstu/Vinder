@@ -32,8 +32,7 @@
 | Search | 🔶 | `SearchResultsScreen` filters locally on `HomeViewModel`'s already-loaded feed — no server-side search, no AI search despite being a stated feature |
 | Filters / sorting | 🔶 | `FilterBottomSheet` exists; applied client-side on in-memory list |
 | Product detail view | ✅ | `ItemDetailScreen` with photo carousel, description, seller card |
-| Cart | ❌ | `account_favorite` table in schema, zero app code touches it |
-| Wishlist | ❌ | Same as cart — table exists, no UI or repository |
+| Wishlist / saved items | ✅ | `account_favorite` backed; heart on feed cards + item detail; `WishlistScreen` from Profile; RLS migration 006 |
 | Buy flow | 🔶 | `confirmBuy()` inserts to `purchase` and marks item sold, but fees calculated client-side (spoofable); no payment gateway |
 | Payment integration | ❌ | No Stripe/payment SDK; purchase is a direct DB insert |
 | Order history | ✅ | `OrderHistoryScreen` + `OrderHistoryViewModel`; shows item name, fee breakdown, total, date |
@@ -54,7 +53,7 @@
 
 **Schema summary** (17 tables): `item_condition`, `status`, `rating`, `item_category`, `account`, `account_side_information`, `account_authentication`, `account_following`, `account_rating`, `item`, `item_photo`, `account_favorite`, `item_offer`, `purchase`, `dialogue`, `dialogue_message`, `dialogue_message_attachment`
 
-**CRITICAL — RLS not enabled on any public table.** `init.sql` contains zero `ENABLE ROW LEVEL SECURITY` or `CREATE POLICY` statements for public schema tables. Only `storage.objects` has RLS (via migration `001`). Every authenticated user can read and write every row in every table via the Supabase anon key — including other users' purchases, messages, and account details.
+**CRITICAL — RLS not enabled on most public tables.** `dialogue` and `dialogue_message` protected by migration 003; `account_favorite` protected by migration 006. Remaining 13 tables (`account`, `item`, `item_photo`, `item_offer`, `purchase`, `item_category`, `item_condition`, `status`, `rating`, `account_following`, `account_rating`, `account_side_information`) still have no RLS — any authenticated user can read and write every row via the anon key.
 
 **Storage bucket issues:**
 - `item-photos` bucket: `public = true`, `file_size_limit = NULL`, `allowed_mime_types = NULL` — no size cap, any file type accepted
@@ -127,7 +126,7 @@
 - [x] **Order history screen** — `OrderHistoryScreen` + `OrderHistoryViewModel` + `PurchaseRepository.getMyPurchases()` — **M** ✅
 - [ ] **Listing edit/delete** — add `updateItem()` and `deleteItem()` to `IItemRepository`; new `EditListingScreen` reachable from `ProfileScreen` owned listings tab — **M**
 - [x] **Offer management** — `OffersScreen` + `OffersViewModel` + `ItemRepository.getOffersForSeller/updateOfferStatus()` — **M** ✅
-- [ ] **Wishlist/favorites** — wire `account_favorite` table; add heart icon on `ItemDetailScreen` + `HomeScreen` cards; `AccountRepository.toggleFavorite()` — **M**
+- [x] **Wishlist/favorites** — `WishlistScreen` + `WishlistViewModel`; `ItemRepository.getFavoriteItems/addFavorite/removeFavorite`; heart on `GridProductCard` + `ItemDetailScreen`; RLS migration 006 — **M** ✅
 - [ ] **Follower follow/unfollow action** — `AccountRepository.follow/unfollow()`; wire button in `SellerPublicProfileScreen` (stat count already displayed) — **S**
 - [ ] **Server-side search** — `SearchResultsScreen` currently filters in-memory list; replace with `client.from("item").select { filter { ilike("item_name", "%$query%") } }` at minimum; or add pgvector + Edge Function for AI search — **L**
 - [ ] **Push notifications** — integrate FCM; add `firebase-messaging` dependency; store FCM token in `account_side_information` or new `account_device_token` table; send notifications on message/offer/sale events via Edge Function — **L**
