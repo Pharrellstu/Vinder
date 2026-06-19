@@ -61,16 +61,23 @@ class ChatViewModel(
     }
 
     private fun subscribeToNewMessages() {
+        // Only dialogue_message is in the supabase_realtime publication, so only its inserts
+        // stream here. dialogue_message_attachment is NOT published, so an image's attachment URL
+        // can't arrive via realtime — we resolve it with one extra single-row query per incoming
+        // message. Chat messages arrive at human-typing speed, so the cost is negligible and this
+        // avoids guessing whether a message is an image from its text (a caption hides that signal).
         channel.postgresChangeFlow<PostgresAction.Insert>(schema = "public") {
             table = "dialogue_message"
         }.onEach { action ->
             val entity = action.decodeRecord<DialogueMessageEntity>()
             if (entity.dialogueId != dialogueId) return@onEach
+            val attachmentUrl = repository.getAttachmentUrl(entity.messageId)
             val newMessage = ChatMessage(
                 id = entity.messageId.toString(),
                 text = entity.text,
                 isFromMe = entity.senderId == SessionManager.currentAccountId,
                 time = entity.timestamp.take(16).replace("T", " "),
+                attachmentUrl = attachmentUrl,
             )
             val current = _uiState.value
             if (current is ChatUiState.Success) {
@@ -91,6 +98,18 @@ class ChatViewModel(
                 repository.sendMessage(dialogueId, senderId, text)
             }.onFailure {
                 _sendError.value = it.message ?: "Failed to send message"
+            }
+        }
+    }
+
+    fun sendImageMessage(bytes: ByteArray, caption: String = "") {
+        val senderId = SessionManager.currentAccountId
+        if (senderId == -1 || bytes.isEmpty()) return
+        viewModelScope.launch {
+            runCatching {
+                repository.sendImageMessage(dialogueId, senderId, bytes, caption.trim())
+            }.onFailure {
+                _sendError.value = it.message ?: "Failed to send image"
             }
         }
     }
