@@ -71,9 +71,9 @@ App is now Supabase-hosted on the web, not the local Docker stack this document 
 | 3 | Notification settings persistence — in-memory only | ❌ Missing | ✅ Resolved | `NotificationPreferences` (`data/NotificationPreferences.kt`) writes to SharedPreferences; `NotificationSettingsViewModel` reads from it; survives process kill; commit `4dea618` |
 | 4 | Duplicate auth ViewModels — `AuthViewModel` + `LoginViewModel` | ❌ Open | ✅ Resolved | `AuthViewModel.kt` and `AuthenticateAccountScreen.kt` deleted; `RegistrationViewModel.kt` added to replace the registration half; no dead references remain |
 | 5 | RLS missing on `dialogue` / `dialogue_message` | ❌ Critical | ✅ Resolved | Migration `003_chat_realtime_and_policies.sql` enables RLS and adds participant-scoped policies for SELECT/INSERT/UPDATE on both tables; Realtime publication added |
-| 6 | RLS missing on all other public tables | ❌ Critical | ❌ Open | `dialogue` + `dialogue_message` protected (see #5); `account_favorite` protected (migration 006, third session); remaining 12 tables (`account`, `item`, `item_photo`, `item_offer`, `purchase`, `item_category`, `item_condition`, `status`, `rating`, `account_following`, `account_rating`, `account_side_information`) still have no RLS |
+| 6 | RLS missing on all other public tables | ❌ Critical | ✅ Resolved | All 12 remaining tables now protected; migration `007_rls_remaining_tables.sql` enables RLS and adds appropriate policies on `account`, `account_side_information`, `item`, `item_photo`, `item_offer`, `purchase`, `status`, `rating`, `account_following`, `account_rating` (also activates inert 004/005 policies on `item`/`item_photo`) |
 | 7 | Client-side fee calculation (`ItemDetailViewModel.kt:38-39`) | ⚠ High | ❌ Open | `SHIPPING_FEE = 3.95`, `BUYER_PROTECTION_FEE = 0.90` still hardcoded in client; client still sends fee amounts to DB; spoofable |
-| 8 | `markAsSold()` + `updateItemToListed()` no ownership check | ⚠ High | ❌ Open | No RLS on `item` table; app-level seller-ID guard added in third session; DB-level still missing |
+| 8 | `markAsSold()` + `updateItemToListed()` no ownership check | ⚠ High | ✅ Resolved | `item_update_own` policy (migration 004) now active — RLS enabled on `item` by migration 007; DB rejects updates where `seller_id ≠ current_account_id()` |
 | 9 | `item-photos` storage upload path not user-scoped | ⚠ High | ❌ Open | `001_create_item_photos_bucket.sql` policy still only checks `bucket_id = 'item-photos'`; any authenticated user can overwrite `items/<other_user_id>/...` |
 | 10 | No file type/size limit on `item-photos` bucket | 🟡 Medium | ❌ Open | `file_size_limit = NULL`, `allowed_mime_types = NULL` unchanged |
 | 11 | `SessionManager.currentAccountId` default was `0` | 🟡 Medium | ✅ Resolved | Changed to `NO_ACCOUNT_ID = -1`; `isLoggedIn()` guard added; `confirmBuy()`/`submitOffer()` pass through `SessionManager.currentAccountId` which is now `-1` (not `0`) when unset — still no null-guard in call sites but sentinel is no longer a valid account ID |
@@ -209,11 +209,11 @@ Only features whose status changed since the 2026-06-18 audit:
 
 | Finding | Severity | Status | Detail |
 |---|---|---|---|
-| No RLS on 12 public tables | CRITICAL | ❌ Open | `account`, `item`, `item_photo`, `item_offer`, `purchase` and 7 others readable/writable by any authenticated anon-key user |
+| No RLS on 12 public tables | CRITICAL | ✅ Resolved | Migration `007` enables RLS and adds policies on all remaining tables |
 | RLS on `dialogue` + `dialogue_message` | HIGH | ✅ Resolved | Migration `003` — participant-scoped policies added |
 | RLS on `account_favorite` | MEDIUM | ✅ Resolved | Migration `006` — owner-scoped SELECT/INSERT/DELETE policies added |
 | Client-side fee calculation | HIGH | ❌ Open | `SHIPPING_FEE` and `BUYER_PROTECTION_FEE` constants in `ItemDetailViewModel.kt:38-39`; client sends fee values to DB |
-| `markAsSold()` no DB-level ownership check | HIGH | ❌ Open | App-level guard added; `item` table still has no RLS — any direct API call bypasses it |
+| `markAsSold()` no DB-level ownership check | HIGH | ✅ Resolved | `item_update_own` policy now enforced at DB level (migration 007 enabled RLS on `item`) |
 | `item-photos` upload path not restricted | HIGH | ❌ Open | Storage policy allows upload to any path; malicious user can overwrite other users' photos |
 | No file type/size limit on storage | MEDIUM | ❌ Open | Bucket accepts any file; denial-of-storage risk |
 | `SessionManager` in-memory only | MEDIUM | ✅ Resolved | `AccountPreferences` + `SplashViewModel` restore session on relaunch |
@@ -228,7 +228,7 @@ Only features whose status changed since the 2026-06-18 audit:
 
 ### Priority 1 — Blockers (cannot ship without)
 
-- [ ] **Enable RLS on remaining 12 public tables** — `account`, `item`, `item_photo`, `item_offer`, `purchase`, `item_category`, `item_condition`, `status`, `rating`, `account_following`, `account_rating`, `account_side_information` — add via new migration; minimum policies: authenticated SELECT on lookup tables, owner-scoped INSERT/UPDATE/DELETE on `item`/`item_photo`/`item_offer`/`purchase`
+- [x] **Enable RLS on remaining 12 public tables** — migration `007_rls_remaining_tables.sql` applied; all tables protected with appropriate participant/owner-scoped policies ✅
 - [ ] **Move fee calculation server-side** — `ItemDetailViewModel.kt:38-39`, `PurchaseRepository.kt` — fees must be computed in a Supabase Edge Function or DB trigger; any client-supplied fee amount should be rejected
 - [ ] **Restrict storage upload path** — update `001_create_item_photos_bucket.sql` — `WITH CHECK` should enforce `(storage.foldername(name))[1] = auth.uid()::text`; same for `avatars/`
 
