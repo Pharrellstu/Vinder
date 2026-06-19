@@ -304,7 +304,7 @@ private fun ProfileActionButtons(
             )
         }
         ActionButton(
-            label = "Wishlist",
+            label = "My wishlist",
             bgColor = Color.White,
             textColor = Color.Black,
             borderColor = Grey91,
