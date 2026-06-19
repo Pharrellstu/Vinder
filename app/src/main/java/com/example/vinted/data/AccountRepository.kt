@@ -23,6 +23,9 @@ interface IAccountRepository {
     suspend fun getListedItems(accountId: Int): List<ListingItem>
     suspend fun getSoldItems(accountId: Int): List<ListingItem>
     suspend fun getFollowerCount(accountId: Int): Int
+    suspend fun isFollowing(targetId: Int): Boolean
+    suspend fun follow(targetId: Int)
+    suspend fun unfollow(targetId: Int)
     suspend fun updateProfile(accountId: Int, name: String, bio: String, location: String)
     suspend fun updateAvatar(accountId: Int, bytes: ByteArray): String
 }
@@ -125,6 +128,37 @@ class AccountRepository : IAccountRepository {
         return client.from("account_following")
             .select { filter { eq("following_id", accountId) } }
             .decodeList<FollowRow>().size
+    }
+
+    override suspend fun isFollowing(targetId: Int): Boolean {
+        val me = SessionManager.currentAccountId
+        if (me == -1) return false
+        return client.from("account_following")
+            .select {
+                filter {
+                    eq("follower_id", me)
+                    eq("following_id", targetId)
+                }
+            }
+            .decodeList<FollowRow>()
+            .isNotEmpty()
+    }
+
+    override suspend fun follow(targetId: Int) {
+        val me = SessionManager.currentAccountId
+        client.from("account_following").insert(
+            mapOf("follower_id" to me, "following_id" to targetId)
+        )
+    }
+
+    override suspend fun unfollow(targetId: Int) {
+        val me = SessionManager.currentAccountId
+        client.from("account_following").delete {
+            filter {
+                eq("follower_id", me)
+                eq("following_id", targetId)
+            }
+        }
     }
 
     override suspend fun updateProfile(accountId: Int, name: String, bio: String, location: String) {
