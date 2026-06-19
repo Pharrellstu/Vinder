@@ -45,6 +45,7 @@ import com.example.vinted.ui.screens.MyListingsScreen
 import com.example.vinted.ui.screens.NotificationSettingsScreen
 import com.example.vinted.ui.screens.OffersScreen
 import com.example.vinted.ui.screens.OrderHistoryScreen
+import com.example.vinted.ui.screens.WishlistScreen
 import com.example.vinted.ui.screens.ProfileScreen
 import com.example.vinted.ui.screens.RegisterScreen
 import com.example.vinted.ui.screens.SearchResultsScreen
@@ -207,7 +208,10 @@ private fun MainTabs(onLoggedOut: () -> Unit) {
 
     if (showWishlist) {
         BackHandler { showWishlist = false }
-        WishlistScreen(onBack = { showWishlist = false }, onProductClick = { openProduct = it })
+        WishlistScreen(
+            onBack = { showWishlist = false },
+            onProductClick = { openProduct = it },
+        )
         return
     }
 

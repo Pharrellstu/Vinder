@@ -103,7 +103,7 @@ private fun FavoriteButton(isFavorite: Boolean, onClick: () -> Unit, modifier: M
     ) {
         Icon(
             imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-            contentDescription = if (isFavorite) "Remove from wishlist" else "Save item",
+            contentDescription = if (isFavorite) "Remove from wishlist" else "Save to wishlist",
             tint = if (isFavorite) VinderAzure else Grey11,
             modifier = Modifier.size(14.dp),
         )

@@ -67,7 +67,7 @@ App is now Supabase-hosted on the web, not the local Docker stack this document 
 | Filters / sorting | 🔶 | `HomeScreen` category + price-bucket filters are wired to `HomeViewModel` and actually filter the live feed. `SearchResultsScreen`'s `FilterBottomSheet` (category/condition/size/price) and sort control are fully functional and now operate on real server-fetched items — but the filtering itself still happens client-side on the fetched page, not pushed down into the Postgrest query. `size` has no backing DB column at all, so the size filter can never match a real item |
 | Product detail view | ✅ | `ItemDetailScreen` with photo carousel, description, seller card |
 | Cart | ❌ | No multi-item cart concept in this app's buy flow (items are bought individually). `account_favorite` is used by Wishlist, not cart — original audit's note that the table was untouched is now out of date |
-| Wishlist | ✅ | `account_favorite`-backed via `ItemRepository.getFavoriteItemIds/getFavoriteItems/addFavorite/removeFavorite`; heart button on `GridProductCard` toggles persisted state; dedicated `WishlistScreen` reachable from `ProfileScreen` |
+| Wishlist | ✅ | `account_favorite`-backed via `ItemRepository.getFavoriteItemIds/getFavoriteItems/addFavorite/removeFavorite`; heart button on `GridProductCard` and `ItemDetailScreen` toggles persisted state; dedicated `WishlistScreen` reachable from `ProfileScreen`; RLS migration 006 |
 | Buy flow | 🔶 | `confirmBuy()` inserts to `purchase` and marks item sold, but fees calculated client-side (spoofable); no payment gateway. Self-purchase/self-offer now blocked: `ItemDetailScreen` hides Buy/Offer on the viewer's own listings, and `ItemDetailViewModel.confirmBuy()`/`submitOffer()` reject `sellerId == buyerId`/`creatorId` before any network call |
 | Payment integration | ❌ | No Stripe/payment SDK; purchase is a direct DB insert |
 | Order history | ✅ | `OrderHistoryScreen` + `OrderHistoryViewModel`; shows item name, fee breakdown, total, date |
@@ -88,7 +88,7 @@ App is now Supabase-hosted on the web, not the local Docker stack this document 
 
 **Schema summary** (17 tables): `item_condition`, `status`, `rating`, `item_category`, `account`, `account_side_information`, `account_authentication`, `account_following`, `account_rating`, `item`, `item_photo`, `account_favorite`, `item_offer`, `purchase`, `dialogue`, `dialogue_message`, `dialogue_message_attachment`
 
-**CRITICAL — RLS not enabled on any public table.** `init.sql` contains zero `ENABLE ROW LEVEL SECURITY` or `CREATE POLICY` statements for public schema tables. Only `storage.objects` has RLS (via migration `001`). Every authenticated user can read and write every row in every table via the Supabase anon key — including other users' purchases, messages, and account details.
+**CRITICAL — RLS not enabled on most public tables.** `dialogue` and `dialogue_message` protected by migration 003; `account_favorite` protected by migration 006. Remaining 13 tables (`account`, `item`, `item_photo`, `item_offer`, `purchase`, `item_category`, `item_condition`, `status`, `rating`, `account_following`, `account_rating`, `account_side_information`) still have no RLS — any authenticated user can read and write every row via the anon key.
 
 **Storage bucket issues:**
 - `item-photos` bucket: `public = true`, `file_size_limit = NULL`, `allowed_mime_types = NULL` — no size cap, any file type accepted
@@ -161,7 +161,7 @@ App is now Supabase-hosted on the web, not the local Docker stack this document 
 - [x] **Order history screen** — `OrderHistoryScreen` + `OrderHistoryViewModel` + `PurchaseRepository.getMyPurchases()` — **M** ✅
 - [ ] **Listing edit/delete** — add `updateItem()` and `deleteItem()` to `IItemRepository`; new `EditListingScreen` reachable from `ProfileScreen` owned listings tab — **M**
 - [x] **Offer management** — `OffersScreen` + `OffersViewModel` + `ItemRepository.getOffersForSeller/updateOfferStatus()` — **M** ✅
-- [x] **Wishlist/favorites** — `ItemRepository` favorite methods + heart icon on `HomeScreen` (`GridProductCard`) cards wired to persisted state; new `WishlistScreen` — **M** ✅ (still missing: heart icon on `ItemDetailScreen`)
+- [x] **Wishlist/favorites** — `WishlistScreen` + `WishlistViewModel`; `ItemRepository.getFavoriteItems/addFavorite/removeFavorite`; heart on `GridProductCard` + `ItemDetailScreen`; RLS migration 006 — **M** ✅
 - [ ] **Follower follow/unfollow action** — `AccountRepository.follow/unfollow()`; wire button in `SellerPublicProfileScreen` (stat count already displayed) — **S**
 - [x] **Server-side search** — `IItemRepository.getFeedItems(searchQuery)` applies `ilike("item_name", "%query%")` in the Postgrest query; `SearchResultsViewModel` calls it on every keystroke — **L** ✅ (AI/pgvector semantic search deliberately not in scope, see Priority 4)
 - [ ] **Push notifications** — integrate FCM; add `firebase-messaging` dependency; store FCM token in `account_side_information` or new `account_device_token` table; send notifications on message/offer/sale events via Edge Function — **L**
