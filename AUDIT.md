@@ -75,10 +75,10 @@ App is now Supabase-hosted on the web, not the local Docker stack this document 
 | 7 | Client-side fee calculation (`ItemDetailViewModel.kt:38-39`) | ⚠ High | ❌ Open | `SHIPPING_FEE = 3.95`, `BUYER_PROTECTION_FEE = 0.90` still hardcoded in client; client still sends fee amounts to DB; spoofable |
 | 8 | `markAsSold()` + `updateItemToListed()` no ownership check | ⚠ High | ✅ Resolved | `item_update_own` policy (migration 004) now active — RLS enabled on `item` by migration 007; DB rejects updates where `seller_id ≠ current_account_id()` |
 | 9 | `item-photos` storage upload path not user-scoped | ⚠ High | ❌ Open | `001_create_item_photos_bucket.sql` policy still only checks `bucket_id = 'item-photos'`; any authenticated user can overwrite `items/<other_user_id>/...` |
-| 10 | No file type/size limit on `item-photos` bucket | 🟡 Medium | ❌ Open | `file_size_limit = NULL`, `allowed_mime_types = NULL` unchanged |
+| 10 | No file type/size limit on `item-photos` bucket | 🟡 Medium | ✅ Resolved | Migration `008` sets `file_size_limit = 5 MB`, `allowed_mime_types = [jpeg, png, webp]` |
 | 11 | `SessionManager.currentAccountId` default was `0` | 🟡 Medium | ✅ Resolved | Changed to `NO_ACCOUNT_ID = -1`; `isLoggedIn()` guard added; `confirmBuy()`/`submitOffer()` pass through `SessionManager.currentAccountId` which is now `-1` (not `0`) when unset — still no null-guard in call sites but sentinel is no longer a valid account ID |
-| 12 | Dead files `ChatRepository.kt`, `SupabaseConfig.kt` | ❌ Open | ❌ Open | Both files still present; confirmed no production references; safe to delete |
-| 13 | Missing indexes on `purchase(buyer_id, seller_id)` | ❌ Open | ❌ Open | `init.sql` still has no index on `purchase` table; order history full-scans |
+| 12 | Dead files `ChatRepository.kt`, `SupabaseConfig.kt` | ❌ Open | ✅ Resolved | Both files deleted; commit `e0d3893` |
+| 13 | Missing indexes on `purchase(buyer_id, seller_id)` | ❌ Open | ✅ Resolved | Migration `008` adds `idx_purchase_buyer` + `idx_purchase_seller` |
 | 14 | Push notifications — no FCM / background delivery | ❌ Missing | 🔶 Partial | `MessageNotificationController` + `VinderNotifications` deliver local notifications via Supabase Realtime while app is foregrounded; no FCM = no delivery when app is killed |
 
 ---
@@ -87,8 +87,8 @@ App is now Supabase-hosted on the web, not the local Docker stack this document 
 
 | # | Area | Severity | Description | File:Line |
 |---|------|----------|-------------|-----------|
-| N1 | Notifications | Low | `NotificationPreferences.init()` is called in `MainActivity.onCreate()`, not in `VinderApplication.onCreate()`. Any future background component (Service, BroadcastReceiver) that reads `NotificationPreferences` before `MainActivity` starts would silently use default values rather than persisted prefs. Not currently exploitable (no background components), but fragile as the notification layer grows. | `VinderApplication.kt:8`, `MainActivity.kt:61` |
-| N2 | Chat notifications | Low | `MessageNotificationController.handleIncoming()` fires two sequential Postgrest queries per incoming message (dialogue participation check + sender name lookup). Under high chat volume this creates significant query churn and could hit Supabase rate limits. Consider pre-fetching participant IDs when the subscription is opened or caching sender names. | `MessageNotificationController.kt:76-90` |
+| N1 | Notifications | Low | ✅ Resolved | `NotificationPreferences.init()` moved to `VinderApplication.onCreate()`; commit `e0d3893` | `VinderApplication.kt` |
+| N2 | Chat notifications | Low | ✅ Resolved | `senderNameCache` added to `MessageNotificationController`; sender name Postgrest query now fires at most once per sender per session; commit `e0d3893` | `MessageNotificationController.kt` |
 
 ---
 
@@ -133,7 +133,7 @@ Only features whose status changed since the 2026-06-18 audit:
 | Session persistence | ✅ | `SplashViewModel` restores GoTrue session + `AccountPreferences`; survives process kill |
 | User profile (view) | ✅ | `ProfileScreen` + `SellerPublicProfileScreen` load from DB |
 | User profile (edit) | ✅ | `EditProfileViewModel` + `AccountRepository.updateProfile()` |
-| Avatar upload | 🔶 | Uploads to `item-photos` bucket under `avatars/` prefix — no dedicated bucket, no size/type limit |
+| Avatar upload | 🔶 | Uploads to `item-photos` bucket under `avatars/` prefix — no dedicated bucket; size/type limits now enforced (migration 008) |
 | Listings (create) | ✅ | `AddProductScreen` + full photo upload; category/condition chips load real DB names — can no longer fail on name mismatch |
 | Listings (edit/delete) | ✅ | My Listings tab on `ProfileScreen`; in-place edit of name/description/price/condition/category; mark-as-sold and delete from `ItemDetailScreen` owner view and My Listings tab; `ItemRepository.updateItem()`/`deleteItem()` with app-level seller-ID ownership check |
 | Search | ✅ | `SearchResultsScreen` does real server-side search via `ItemRepository.getFeedItems(searchQuery)` → Postgrest `ilike`; `SearchResultsViewModel` calls on every keystroke; tapping a result opens `ItemDetailScreen`. `HomeScreen` search is client-side word-boundary prefix. AI-powered search explicitly deferred |
@@ -152,7 +152,7 @@ Only features whose status changed since the 2026-06-18 audit:
 | Message notifications | 🔶 | Local notifications via Realtime while foregrounded; no FCM background delivery |
 | Notification settings | 🔶 | Prefs persist via SharedPreferences; no server-side preference sync |
 | Ratings & reviews | ❌ | `account_rating` + `rating` tables in schema; zero app code or UI |
-| Followers | 🔶 | `account_following` table exists, follower count shown in profile stats, but follow/unfollow action not implemented |
+| Followers | ✅ | `AccountRepository.follow/unfollow/isFollowing()`; `ProfileViewModel` exposes `isFollowing` StateFlow with optimistic update + rollback; `SellerPublicProfileScreen` Follow button persists to DB |
 | Admin / moderation | ❌ | None |
 | AI-powered search | ❌ | Stated as key feature in CLAUDE.md; not implemented (explicitly deferred) |
 
@@ -164,18 +164,18 @@ Only features whose status changed since the 2026-06-18 audit:
 
 **CRITICAL — RLS still missing on 12 public tables.** Migration `003` added RLS to `dialogue` and `dialogue_message`; migration `006` added RLS to `account_favorite`. The following tables remain completely open: `account`, `item`, `item_photo`, `item_offer`, `purchase`, `item_category`, `item_condition`, `status`, `rating`, `account_following`, `account_rating`, `account_side_information`. Any authenticated user with the anon key can read and write every row in these tables.
 
-**Storage bucket issues (unchanged):**
-- `item-photos` bucket: `file_size_limit = NULL`, `allowed_mime_types = NULL` — no size cap, any file type accepted
-- Upload policy checks only `bucket_id = 'item-photos'`, not path prefix — any authenticated user can overwrite `items/<other_user_id>/photo_N.jpg` by guessing the path
-- Avatars share the `item-photos` bucket under `avatars/` prefix; no dedicated bucket
+**Storage bucket issues (partially resolved):**
+- `item-photos` bucket: `file_size_limit = 5 MB`, `allowed_mime_types = [image/jpeg, image/png, image/webp]` — set by migration `008` ✅
+- Upload policy checks only `bucket_id = 'item-photos'`, not path prefix — any authenticated user can overwrite `items/<other_user_id>/photo_N.jpg` by guessing the path ❌ Open
+- Avatars share the `item-photos` bucket under `avatars/` prefix; no dedicated bucket ❌ Open
 
-**Missing indexes on `purchase` table (unchanged):** No index on `buyer_id` or `seller_id` — order history queries will full-scan at scale.
+**Missing indexes on `purchase` table:** ✅ Resolved — migration `008` adds `idx_purchase_buyer` and `idx_purchase_seller`.
 
-**Schema concern — `account.password_hash` (unchanged):** Column still defined with `NOT NULL`. Migration `002` now populates it with the literal `'supabase_managed'` as a placeholder — reduces confusion slightly but the column should be dropped.
+**Schema concern — `account.password_hash`:** ✅ Resolved — dropped by migration `008`. `account.created_at` column added in the same migration.
 
-**`dialogue` UNIQUE constraint (unchanged):** `UNIQUE(dialogue_creator_id, dialogue_receiver_id)` — ordered pair, not unordered. Alice→Bob and Bob→Alice can create two separate threads.
+**`dialogue` UNIQUE constraint:** ✅ Resolved — migration `008` drops the ordered `UNIQUE(creator, receiver)` constraint and replaces it with a canonical expression index on `(LEAST(creator,receiver), GREATEST(creator,receiver))`; `DialogueRepository.getOrCreateDialogue()` now normalises IDs (`minOf` → creator, `maxOf` → receiver) so inserts always use the canonical form.
 
-**`account_authentication` table (unchanged):** Stores OTP hash + expiry; app uses Supabase built-in email OTP. Unused dead schema.
+**`account_authentication` table:** ✅ Resolved — dropped by migration `008`.
 
 **New — Migration `002` auto-creates account rows:** `handle_auth_user_created()` trigger inserts a row into `public.account` on GoTrue user creation using `nickname` from `raw_user_meta_data`, falling back to email prefix. This closes the gap where `login()` previously queried for an account row that might not exist. Good addition.
 
@@ -185,19 +185,19 @@ Only features whose status changed since the 2026-06-18 audit:
 
 ### Code Quality Findings
 
-1. **`data/ChatRepository.kt`** — Still a stub (`return emptyList()`, `= Unit` bodies). Never imported anywhere. Dead file.
+1. ~~**`data/ChatRepository.kt`**~~ — ✅ Deleted (commit `e0d3893`).
 
-2. **`data/SupabaseConfig.kt`** — Still a `@Deprecated` shim. Referenced nowhere in production code. Dead file.
+2. ~~**`data/SupabaseConfig.kt`**~~ — ✅ Deleted (commit `e0d3893`).
 
 3. **`ItemDetailViewModel.kt:38-39`** — `SHIPPING_FEE` and `BUYER_PROTECTION_FEE` constants still client-side. Client sends fee values to DB — anyone can send $0 fees.
 
-4. **`ItemDetailViewModel.kt:105`** — `memberSince = "-"` still hardcoded. `account` table has no `created_at` column; `item` table now has `created_at` but account join date is not derivable without a schema change.
+4. **`ItemDetailViewModel.kt:105`** — `memberSince = "-"` still hardcoded. `account.created_at` column added by migration `008`; app code not yet wired to display it (see Priority 4 `memberSince` item).
 
-5. **`getFeedItems()` — no pagination (unchanged).** Fetches all `is_listed=true` items in one query. Will break at scale.
+5. ~~**`getFeedItems()` — no pagination.**~~ ✅ Resolved — `ItemRepository.PAGE_SIZE = 20`, offset-based pagination via `.range()`; `HomeViewModel.loadMore()` appends pages; `HomeScreen` triggers on scroll-to-end (commit `b816891`).
 
 6. **`MainActivity.kt` — Manual boolean-flag navigation (unchanged).** No deep-link support, no back-stack, no predictive back gesture support.
 
-7. **`MessageNotificationController.kt:76-90`** — Two sequential Postgrest queries per incoming message. At scale, consider caching participant IDs at subscription open time.
+7. ~~**`MessageNotificationController.kt:76-90`**~~ — ✅ Resolved — sender name cached via `senderNameCache` map; only one Postgrest lookup per unique sender per session (commit `e0d3893`).
 
 8. **`markAsSold()` / `updateItemToListed()` — app-level ownership guard added; DB-level still missing.** `ItemRepository` now checks seller ID before calling these; RLS on `item` table (Priority 1) will enforce at DB level.
 
@@ -215,10 +215,10 @@ Only features whose status changed since the 2026-06-18 audit:
 | Client-side fee calculation | HIGH | ❌ Open | `SHIPPING_FEE` and `BUYER_PROTECTION_FEE` constants in `ItemDetailViewModel.kt:38-39`; client sends fee values to DB |
 | `markAsSold()` no DB-level ownership check | HIGH | ✅ Resolved | `item_update_own` policy now enforced at DB level (migration 007 enabled RLS on `item`) |
 | `item-photos` upload path not restricted | HIGH | ❌ Open | Storage policy allows upload to any path; malicious user can overwrite other users' photos |
-| No file type/size limit on storage | MEDIUM | ❌ Open | Bucket accepts any file; denial-of-storage risk |
+| No file type/size limit on storage | MEDIUM | ✅ Resolved | Migration `008` sets 5 MB cap and jpeg/png/webp allow-list |
 | `SessionManager` in-memory only | MEDIUM | ✅ Resolved | `AccountPreferences` + `SplashViewModel` restore session on relaunch |
 | `SessionManager.currentAccountId` default `0` | MEDIUM | ✅ Resolved | Changed to `NO_ACCOUNT_ID = -1`; no longer maps to a valid account ID |
-| `account.password_hash` column | LOW | ❌ Open | Dead column; migration `002` writes `'supabase_managed'` placeholder — still misleading, should be dropped |
+| `account.password_hash` column | LOW | ✅ Resolved | Column dropped by migration `008` |
 | API keys via BuildConfig | ✅ OK | — | `SUPABASE_URL` and `SUPABASE_ANON_KEY` injected from `local.properties` via `BuildConfig` |
 | No hardcoded secrets | ✅ OK | — | Grep over all `.kt` files returned no matches |
 
@@ -236,26 +236,26 @@ Only features whose status changed since the 2026-06-18 audit:
 
 - [x] **Listing edit/delete** — My Listings tab on `ProfileScreen`; in-place edit from `ItemDetailScreen` owner view; `ItemRepository.updateItem()`/`deleteItem()` with app-level ownership check — **M** ✅
 - [x] **Wishlist/favorites** — `account_favorite`-backed; heart button on `GridProductCard` and `ItemDetailScreen` toggles persisted state; `WishlistScreen` reachable from `ProfileScreen`; RLS migration 006 — **M** ✅
-- [ ] **Follower follow/unfollow action** — `AccountRepository.follow/unfollow()`; wire button in `SellerPublicProfileScreen` (stat count already displayed) — **S**
+- [x] **Follower follow/unfollow action** — `AccountRepository.follow/unfollow/isFollowing()`; `ProfileViewModel` with optimistic update + rollback; `SellerPublicProfileScreen` wired — **S** ✅
 - [x] **Server-side search** — `IItemRepository.getFeedItems(searchQuery)` applies `ilike("item_name", "%query%")` in Postgrest; `SearchResultsViewModel` calls on every keystroke; tapping result navigates to `ItemDetailScreen` — **L** ✅
 - [ ] **Push notifications (FCM)** — integrate `firebase-messaging`; store FCM token in `account_side_information` or new table; Edge Function to send on message/offer/sale events — **L**
 - [ ] **Notification settings sync** — write per-user preferences to Supabase rather than local SharedPreferences only; required for multi-device support — **S**
 
 ### Priority 3 — Quality & Security Fixes
 
-- [ ] **Guard against self-purchase (DB-level)** — app-level guard added; RLS policies (Priority 1) will enforce at DB level for `markAsSold()`/`updateItemToListed()` — **S**
-- [ ] **Delete dead files** — `data/ChatRepository.kt`, `data/SupabaseConfig.kt` — **S**
-- [ ] **Feed pagination** — `ItemRepository.getFeedItems()` — add `.range(offset, offset+PAGE_SIZE-1)` and cursor-based loading in `HomeViewModel` — **S**
-- [ ] **Storage file type + size limits** — update `001_create_item_photos_bucket.sql`; set `file_size_limit = 5242880` (5 MB), `allowed_mime_types = ['image/jpeg','image/png','image/webp']` — **S**
-- [ ] **Add `created_at` to `account` table** — needed to populate `memberSince` in `ItemDetailViewModel.kt:105`; add migration — **S**
-- [ ] **Remove `account.password_hash`** — dead column; remove via migration — **S**
-- [ ] **Drop `account_authentication` table** — unused since GoTrue handles OTP; add migration — **S**
-- [ ] **Fix `dialogue` UNIQUE constraint** — current `UNIQUE(creator, receiver)` is ordered; add canonical ordering in app or change constraint to `UNIQUE(LEAST(a,b), GREATEST(a,b))` — **S**
-- [ ] **Add indexes on `purchase(buyer_id, seller_id)`** — missing from `init.sql`; needed for order history at scale — **S**
-- [ ] **Add DI framework (Hilt)** — repositories new-ed inside ViewModels; add `@HiltViewModel` + `@Inject` — **M**
-- [ ] **Replace manual nav with Jetpack Navigation** — `MainActivity.kt` boolean-flag overlay system; add `NavHost` + typed routes for deep-link and predictive back support — **L**
-- [ ] **Move `NotificationPreferences.init()` to `VinderApplication`** — avoids fragility if a future background component reads prefs before `MainActivity` starts — **S**
-- [ ] **Cache sender names in `MessageNotificationController`** — avoids N+1 queries per incoming message — **S**
+- [x] **Guard against self-purchase (DB-level)** — migration `008` tightens `purchase_insert_buyer` + `item_offer_insert_buyer` to reject `buyer = seller` at DB level — **S** ✅
+- [x] **Delete dead files** — `ChatRepository.kt`, `SupabaseConfig.kt` deleted; commit `e0d3893` — **S** ✅
+- [x] **Feed pagination** — `ItemRepository.PAGE_SIZE = 20`, `.range()` in Postgrest; `HomeViewModel.loadMore()`; `HomeScreen` infinite scroll trigger — **S** ✅
+- [x] **Storage file type + size limits** — migration `008`: `file_size_limit = 5 MB`, `allowed_mime_types = [jpeg, png, webp]` — **S** ✅
+- [x] **Add `created_at` to `account` table** — migration `008` adds column; app display deferred (Priority 4) — **S** ✅
+- [x] **Remove `account.password_hash`** — dropped by migration `008` — **S** ✅
+- [x] **Drop `account_authentication` table** — dropped by migration `008` — **S** ✅
+- [x] **Fix `dialogue` UNIQUE constraint** — migration `008` replaces ordered UNIQUE with canonical expression index; `getOrCreateDialogue` normalises to `(min,max)` — **S** ✅
+- [x] **Add indexes on `purchase(buyer_id, seller_id)`** — migration `008` adds `idx_purchase_buyer` + `idx_purchase_seller` — **S** ✅
+- [ ] **Add DI framework (Hilt)** — repositories new-ed inside ViewModels; add `@HiltViewModel` + `@Inject` — **M** (deferred)
+- [ ] **Replace manual nav with Jetpack Navigation** — `MainActivity.kt` boolean-flag overlay system; add `NavHost` + typed routes — **L** (deferred)
+- [x] **Move `NotificationPreferences.init()` to `VinderApplication`** — done; commit `e0d3893` — **S** ✅
+- [x] **Cache sender names in `MessageNotificationController`** — `senderNameCache` added; commit `e0d3893` — **S** ✅
 
 ### Priority 4 — Nice-to-Have / Polish
 
