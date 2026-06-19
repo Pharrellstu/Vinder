@@ -3,10 +3,10 @@ package com.example.vinted.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -25,6 +25,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -48,6 +50,8 @@ fun WishlistScreen(
     onProductClick: (Product) -> Unit = {},
     viewModel: WishlistViewModel = viewModel(),
 ) {
+    val uiState by viewModel.uiState.collectAsState()
+
     Scaffold(
         containerColor = Grey97,
         topBar = {
@@ -64,7 +68,7 @@ fun WishlistScreen(
             )
         },
     ) { padding ->
-        when (val state = viewModel.uiState) {
+        when (val state = uiState) {
             is WishlistUiState.Loading -> Box(
                 modifier = Modifier.fillMaxSize().padding(padding),
                 contentAlignment = Alignment.Center,
@@ -104,51 +108,28 @@ fun WishlistScreen(
                     }
                 } else {
                     LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(padding),
+                        modifier = Modifier.fillMaxSize().padding(padding),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        item { Spacer(modifier = Modifier.height(12.dp)) }
                         items(state.items.chunked(2)) { row ->
-                            WishlistGridRow(
-                                products = row,
-                                onProductClick = onProductClick,
-                                onRemove = { product ->
-                                    product.id.toIntOrNull()?.let { viewModel.removeItem(it) }
-                                },
-                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                row.forEach { product ->
+                                    GridProductCard(
+                                        product = product,
+                                        onClick = { onProductClick(product) },
+                                        onToggleFavorite = { viewModel.removeFromWishlist(product) },
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                }
+                                if (row.size == 1) {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
+                            }
                         }
-                        item { Spacer(modifier = Modifier.height(24.dp)) }
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun WishlistGridRow(
-    products: List<Product>,
-    onProductClick: (Product) -> Unit,
-    onRemove: (Product) -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 5.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        products.forEach { product ->
-            GridProductCard(
-                product = product,
-                onClick = { onProductClick(product) },
-                modifier = Modifier.weight(1f),
-                isFavorited = true,
-                onToggleFavorite = { onRemove(product) },
-            )
-        }
-        if (products.size == 1) {
-            Spacer(modifier = Modifier.weight(1f))
         }
     }
 }

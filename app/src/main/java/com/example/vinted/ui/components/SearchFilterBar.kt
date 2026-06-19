@@ -20,6 +20,8 @@ import com.example.vinted.ui.theme.Grey91
 
 @Composable
 fun SearchFilterBar(
+    sortLabel: String,
+    sortActive: Boolean,
     filterCount: Int,
     itemCount: Int,
     onSortClick: () -> Unit,
@@ -35,7 +37,7 @@ fun SearchFilterBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        FilterPillChip(label = "Sort ↕", selected = false, onClick = onSortClick)
+        FilterPillChip(label = sortLabel, selected = sortActive, onClick = onSortClick)
         FilterPillChip(
             label = if (filterCount > 0) "Filter · $filterCount  ✕" else "Filter",
             selected = filterCount > 0,

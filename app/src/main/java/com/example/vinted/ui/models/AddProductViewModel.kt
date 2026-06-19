@@ -21,12 +21,49 @@ sealed class AddProductUiState {
     data class Error(val message: String) : AddProductUiState()
 }
 
+/**
+ * Selectable category/condition chips for the Details step. Sourced from the DB so
+ * they always map to existing item_category/item_condition rows — picking from a
+ * hardcoded list could reference a name that was never seeded, failing the lookup.
+ */
+sealed class AddProductFormOptions {
+    object Loading : AddProductFormOptions()
+    data class Loaded(
+        val categories: List<String>,
+        val conditions: List<String>,
+    ) : AddProductFormOptions()
+    data class Error(val message: String) : AddProductFormOptions()
+}
+
 class AddProductViewModel(
     private val repository: IItemRepository = ItemRepository(),
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<AddProductUiState>(AddProductUiState.Idle)
     val uiState: StateFlow<AddProductUiState> = _uiState.asStateFlow()
+
+    private val _formOptions = MutableStateFlow<AddProductFormOptions>(AddProductFormOptions.Loading)
+    val formOptions: StateFlow<AddProductFormOptions> = _formOptions.asStateFlow()
+
+    init {
+        loadFormOptions()
+    }
+
+    private fun loadFormOptions() {
+        viewModelScope.launch {
+            _formOptions.value = AddProductFormOptions.Loading
+            runCatching {
+                val categories = repository.getCategoryNames()
+                val conditions = repository.getConditionNames()
+                AddProductFormOptions.Loaded(categories, conditions)
+            }.onSuccess { _formOptions.value = it }
+                .onFailure {
+                    _formOptions.value = AddProductFormOptions.Error(
+                        it.message ?: "Failed to load categories"
+                    )
+                }
+        }
+    }
 
     fun postListing(
         context: Context,

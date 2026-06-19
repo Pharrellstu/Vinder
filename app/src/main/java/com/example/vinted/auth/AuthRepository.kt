@@ -19,6 +19,7 @@ interface IAuthRepository {
     suspend fun logout(): Result<Unit>
     suspend fun register(nickname: String, email: String, password: String): Result<Unit>
     suspend fun isNicknameTaken(nickname: String): Result<Boolean>
+    suspend fun isEmailTaken(email: String): Result<Boolean>
     suspend fun sendPasswordResetEmail(email: String): Result<Unit>
     suspend fun verifyPasswordResetOtp(email: String, token: String): Result<Unit>
     suspend fun updatePassword(newPassword: String): Result<Unit>
@@ -65,6 +66,14 @@ open class AuthRepository : IAuthRepository {
                 .decodeList<AccountEntity>()
                 .isNotEmpty()
         }.logError("isNicknameTaken")
+
+    override suspend fun isEmailTaken(email: String): Result<Boolean> =
+        runCatching {
+            supabase.from("account")
+                .select { filter { eq("account_email", email) } }
+                .decodeList<AccountEntity>()
+                .isNotEmpty()
+        }.logError("isEmailTaken")
 
     override suspend fun sendPasswordResetEmail(email: String): Result<Unit> =
         runCatching {

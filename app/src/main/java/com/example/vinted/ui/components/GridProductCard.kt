@@ -6,10 +6,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -18,11 +18,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import com.example.vinted.ui.models.Product
 import com.example.vinted.ui.theme.Grey11
 import com.example.vinted.ui.theme.Grey36
@@ -37,9 +39,8 @@ private val cardShape = RoundedCornerShape(10.dp)
 fun GridProductCard(
     product: Product,
     onClick: () -> Unit = {},
-    modifier: Modifier = Modifier,
-    isFavorited: Boolean = false,
     onToggleFavorite: () -> Unit = {},
+    modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier
@@ -48,22 +49,37 @@ fun GridProductCard(
             .border(1.dp, Grey91, cardShape)
             .clickable(onClick = onClick),
     ) {
-        ProductImageSection(product = product, isFavorited = isFavorited, onToggleFavorite = onToggleFavorite)
+        ProductImageSection(product = product, onToggleFavorite = onToggleFavorite)
         ProductInfoSection(product = product)
     }
 }
 
 @Composable
-private fun ProductImageSection(product: Product, isFavorited: Boolean, onToggleFavorite: () -> Unit) {
+private fun ProductImageSection(product: Product, onToggleFavorite: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(215.dp)
             .background(Grey91),
     ) {
+        if (product.coverImageUrl != null) {
+            AsyncImage(
+                model = product.coverImageUrl,
+                contentDescription = product.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Outlined.Image,
+                contentDescription = null,
+                tint = Grey57,
+                modifier = Modifier.align(Alignment.Center).size(48.dp),
+            )
+        }
         FavoriteButton(
-            isFavorited = isFavorited,
-            onToggle = onToggleFavorite,
+            isFavorite = product.isFavorite,
+            onClick = onToggleFavorite,
             modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
         )
         if (product.discountPercent != null) {
@@ -76,19 +92,19 @@ private fun ProductImageSection(product: Product, isFavorited: Boolean, onToggle
 }
 
 @Composable
-private fun FavoriteButton(isFavorited: Boolean, onToggle: () -> Unit, modifier: Modifier) {
+private fun FavoriteButton(isFavorite: Boolean, onClick: () -> Unit, modifier: Modifier) {
     Box(
         modifier = modifier
             .size(28.dp)
             .clip(CircleShape)
             .background(Color.White.copy(alpha = 0.92f))
-            .clickable(onClick = onToggle),
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = if (isFavorited) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-            contentDescription = if (isFavorited) "Remove from wishlist" else "Save to wishlist",
-            tint = if (isFavorited) Color.Red else Grey11,
+            imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+            contentDescription = if (isFavorite) "Remove from wishlist" else "Save to wishlist",
+            tint = if (isFavorite) VinderAzure else Grey11,
             modifier = Modifier.size(14.dp),
         )
     }

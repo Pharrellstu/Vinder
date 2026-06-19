@@ -50,6 +50,7 @@ import com.example.vinted.ui.screens.RegisterScreen
 import com.example.vinted.ui.screens.SearchResultsScreen
 import com.example.vinted.ui.screens.SellerPublicProfileScreen
 import com.example.vinted.ui.screens.SettingsScreen
+import com.example.vinted.ui.screens.WishlistScreen
 import com.example.vinted.ui.theme.VintedTheme
 
 class MainActivity : ComponentActivity() {

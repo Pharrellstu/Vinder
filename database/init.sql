@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS rating (
 
 CREATE TABLE IF NOT EXISTS item_category (
     item_category_id SERIAL PRIMARY KEY,
-    category_name    VARCHAR(100) NOT NULL
+    category_name    VARCHAR(100) NOT NULL UNIQUE
 );
 
 -- account related tables

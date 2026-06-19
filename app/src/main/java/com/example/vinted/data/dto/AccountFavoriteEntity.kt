@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class AccountFavoriteEntity(
-    @SerialName("account_favorite_id") val favoriteId: Int,
+    @SerialName("account_favorite_id") val accountFavoriteId: Int = 0,
     @SerialName("account_id") val accountId: Int,
     @SerialName("item_id") val itemId: Int,
 )

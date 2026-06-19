@@ -1,13 +1,13 @@
 package com.example.vinted.ui.models
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.vinted.data.IItemRepository
 import com.example.vinted.data.ItemRepository
 import com.example.vinted.data.SessionManager
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 sealed class WishlistUiState {
@@ -20,8 +20,8 @@ class WishlistViewModel(
     private val repository: IItemRepository = ItemRepository(),
 ) : ViewModel() {
 
-    var uiState by mutableStateOf<WishlistUiState>(WishlistUiState.Loading)
-        private set
+    private val _uiState = MutableStateFlow<WishlistUiState>(WishlistUiState.Loading)
+    val uiState: StateFlow<WishlistUiState> = _uiState.asStateFlow()
 
     init {
         load()
@@ -30,26 +30,27 @@ class WishlistViewModel(
     fun load() {
         val accountId = SessionManager.currentAccountId
         if (accountId == SessionManager.NO_ACCOUNT_ID) {
-            uiState = WishlistUiState.Success(emptyList())
+            _uiState.value = WishlistUiState.Success(emptyList())
             return
         }
-        uiState = WishlistUiState.Loading
+        _uiState.value = WishlistUiState.Loading
         viewModelScope.launch {
             runCatching { repository.getFavoriteItems(accountId) }
-                .onSuccess { uiState = WishlistUiState.Success(it) }
-                .onFailure { uiState = WishlistUiState.Error(it.message ?: "Failed to load wishlist") }
+                .onSuccess { _uiState.value = WishlistUiState.Success(it) }
+                .onFailure { _uiState.value = WishlistUiState.Error(it.message ?: "Failed to load wishlist") }
         }
     }
 
-    fun removeItem(itemId: Int) {
+    fun removeFromWishlist(product: Product) {
         val accountId = SessionManager.currentAccountId
         if (accountId == SessionManager.NO_ACCOUNT_ID) return
-        val current = uiState as? WishlistUiState.Success ?: return
-        val optimistic = current.items.filter { it.id.toIntOrNull() != itemId }
-        uiState = WishlistUiState.Success(optimistic)
+        val current = _uiState.value as? WishlistUiState.Success ?: return
+        val optimistic = current.items.filter { it.id != product.id }
+        _uiState.value = WishlistUiState.Success(optimistic)
         viewModelScope.launch {
+            val itemId = product.id.toIntOrNull() ?: return@launch
             runCatching { repository.removeFavorite(accountId, itemId) }
-                .onFailure { uiState = current }
+                .onFailure { _uiState.value = current }
         }
     }
 }
