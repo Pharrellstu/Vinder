@@ -101,7 +101,8 @@ CREATE POLICY "item_photo_delete_own" ON public.item_photo
 -- Only the buyer creates offers; only the item seller updates status (accept/reject).
 ALTER TABLE public.item_offer ENABLE ROW LEVEL SECURITY;
 
-GRANT SELECT, INSERT, UPDATE ON public.item_offer TO authenticated;
+GRANT SELECT, INSERT ON public.item_offer TO authenticated;
+GRANT UPDATE (offer_status_id) ON public.item_offer TO authenticated;
 
 DROP POLICY IF EXISTS "item_offer_select_participant" ON public.item_offer;
 CREATE POLICY "item_offer_select_participant" ON public.item_offer
@@ -123,6 +124,12 @@ DROP POLICY IF EXISTS "item_offer_update_seller" ON public.item_offer;
 CREATE POLICY "item_offer_update_seller" ON public.item_offer
     FOR UPDATE TO authenticated
     USING (
+        item_id IN (
+            SELECT i.item_id FROM public.item i
+            WHERE i.seller_id = (SELECT public.current_account_id())
+        )
+    )
+    WITH CHECK (
         item_id IN (
             SELECT i.item_id FROM public.item i
             WHERE i.seller_id = (SELECT public.current_account_id())
