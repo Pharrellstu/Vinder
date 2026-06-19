@@ -51,6 +51,7 @@ fun SellerProfileCard(
     seller: Seller,
     onViewProfile: () -> Unit = {},
     onMessageSeller: () -> Unit = {},
+    canMessage: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -66,8 +67,11 @@ fun SellerProfileCard(
         HorizontalDivider(color = Grey94)
         Spacer(modifier = Modifier.height(12.dp))
         SellerStatsRow(seller = seller)
-        Spacer(modifier = Modifier.height(14.dp))
-        MessageSellerButton(onClick = onMessageSeller)
+        // Hidden on your own listing — you can't message yourself.
+        if (canMessage) {
+            Spacer(modifier = Modifier.height(14.dp))
+            MessageSellerButton(onClick = onMessageSeller)
+        }
     }
 }
 

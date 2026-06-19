@@ -291,12 +291,19 @@ private fun MainTabs(onLoggedOut: () -> Unit) {
             onMessageSeller = {
                 openChat = ChatTarget(sellerId = product.sellerId, itemId = product.id.toIntOrNull())
             },
+            onEditListing = {
+                openProduct = null
+                editItemId = product.id.toIntOrNull()
+            },
         )
         return
     }
 
     when (selectedTab) {
-        1 -> SearchResultsScreen(onTabSelected = onTabSelected)
+        1 -> SearchResultsScreen(
+            onTabSelected = onTabSelected,
+            onProductClick = { openProduct = it },
+        )
         3 -> MessagesScreen(onTabSelected = onTabSelected)
         4 -> key(profileReloadToken) {
             ProfileScreen(
@@ -307,6 +314,7 @@ private fun MainTabs(onLoggedOut: () -> Unit) {
                 onShowOrders = { showOrderHistory = true },
                 onShowWishlist = { showWishlist = true },
                 onShowMyListings = { showMyListings = true },
+                onOpenListing = { openProduct = it },
             )
         }
         else -> HomeScreen(onTabSelected = onTabSelected, onProductClick = { openProduct = it })

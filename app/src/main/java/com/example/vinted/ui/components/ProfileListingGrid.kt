@@ -1,6 +1,7 @@
 package com.example.vinted.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,22 +29,27 @@ import com.example.vinted.ui.models.ListingItem
 fun ProfileListingGrid(
     listings: List<ListingItem>,
     modifier: Modifier = Modifier,
+    onListingClick: (ListingItem) -> Unit = {},
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         listings.chunked(3).forEach { row ->
-            ListingRow(items = row)
+            ListingRow(items = row, onListingClick = onListingClick)
         }
     }
 }
 
 @Composable
-private fun ListingRow(items: List<ListingItem>) {
+private fun ListingRow(items: List<ListingItem>, onListingClick: (ListingItem) -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         items.forEach { item ->
-            ListingCell(item = item, modifier = Modifier.weight(1f))
+            ListingCell(
+                item = item,
+                onClick = { onListingClick(item) },
+                modifier = Modifier.weight(1f),
+            )
         }
         repeat(3 - items.size) {
             Spacer(modifier = Modifier.weight(1f))
@@ -52,12 +58,13 @@ private fun ListingRow(items: List<ListingItem>) {
 }
 
 @Composable
-private fun ListingCell(item: ListingItem, modifier: Modifier = Modifier) {
+private fun ListingCell(item: ListingItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .aspectRatio(1f)
             .clip(RoundedCornerShape(6.dp))
-            .background(item.bgColor),
+            .background(item.bgColor)
+            .clickable(onClick = onClick),
     ) {
         if (item.coverUrl != null) {
             AsyncImage(
