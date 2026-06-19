@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import com.example.vinted.data.dto.AccountEntity
 import com.example.vinted.data.dto.AccountSideInfoEntity
 import com.example.vinted.data.dto.DialogueEntity
+import com.example.vinted.data.dto.DialogueMessageAttachmentEntity
 import com.example.vinted.data.dto.DialogueMessageEntity
 import com.example.vinted.data.dto.ItemEntity
 import com.example.vinted.data.dto.ItemPhotoEntity
@@ -11,20 +12,35 @@ import com.example.vinted.ui.initialisers.SupabaseClientInitialiser
 import com.example.vinted.ui.models.ChatMessage
 import com.example.vinted.ui.models.Conversation
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.storage.storage
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+
+// `message_text` is NOT NULL, so an image-only message stores this placeholder. MessageBubble
+// suppresses the text line whenever an attachment is present, so it never renders in-bubble — it
+// only surfaces as the conversation-list preview. Top-level so ChatViewModel can recognise an
+// image message by its text and trigger the attachment lookup.
+const val IMAGE_PLACEHOLDER_TEXT = "📷 Photo"
 
 interface IDialogueRepository {
     suspend fun getConversations(accountId: Int): List<Conversation>
     suspend fun getOrCreateDialogue(accountId: Int, otherAccountId: Int, itemId: Int?): Conversation
     suspend fun getMessages(dialogueId: Int): List<ChatMessage>
     suspend fun sendMessage(dialogueId: Int, senderId: Int, text: String)
+    suspend fun sendImageMessage(dialogueId: Int, senderId: Int, bytes: ByteArray, caption: String)
+    suspend fun getAttachmentUrl(messageId: Int): String?
     suspend fun markDialogueRead(dialogueId: Int, accountId: Int)
     suspend fun markRead(dialogueId: Int, accountId: Int)
     suspend fun getUnreadCount(accountId: Int): Int
 }
 
 class DialogueRepository : IDialogueRepository {
+
+    private companion object {
+        // Image attachments reuse the public, non-path-restricted `item-photos` bucket
+        // under a `chat/` prefix, so no new bucket or storage policy is required.
+        const val ATTACHMENT_BUCKET = "item-photos"
+    }
 
     private val client = SupabaseClientInitialiser.client
 
@@ -35,6 +51,18 @@ class DialogueRepository : IDialogueRepository {
         Color(0xFF7B9E6E),
         Color(0xFF9B6D7A),
     )
+
+    // Bulk-fetch attachment links for the given messages, keyed by message id. There is at
+    // most one attachment per message for this feature, so the first row per id wins. Mirrors
+    // the item_photo/coverMap pattern to avoid an N+1 query per message.
+    private suspend fun attachmentUrlsFor(messageIds: List<Int>): Map<Int, String> {
+        if (messageIds.isEmpty()) return emptyMap()
+        return client.from("dialogue_message_attachment")
+            .select { filter { isIn("dialogue_message_id", messageIds) } }
+            .decodeList<DialogueMessageAttachmentEntity>()
+            .groupBy { it.messageId }
+            .mapValues { (_, attachments) -> attachments.first().attachmentLink }
+    }
 
     override suspend fun getConversations(accountId: Int): List<Conversation> {
         val asCreator = client.from("dialogue")
@@ -92,12 +120,14 @@ class DialogueRepository : IDialogueRepository {
             val msgDtos = client.from("dialogue_message")
                 .select { filter { eq("dialogue_id", dialogue.dialogueId) } }
                 .decodeList<DialogueMessageEntity>()
+            val attachmentMap = attachmentUrlsFor(msgDtos.map { it.messageId })
             val messages = msgDtos.map { msg ->
                 ChatMessage(
                     id = msg.messageId.toString(),
                     text = msg.text,
                     isFromMe = msg.senderId == accountId,
                     time = msg.timestamp.take(16).replace("T", " "),
+                    attachmentUrl = attachmentMap[msg.messageId],
                 )
             }
 
@@ -184,12 +214,14 @@ class DialogueRepository : IDialogueRepository {
         val msgDtos = client.from("dialogue_message")
             .select { filter { eq("dialogue_id", dialogue.dialogueId) } }
             .decodeList<DialogueMessageEntity>()
+        val attachmentMap = attachmentUrlsFor(msgDtos.map { it.messageId })
         val messages = msgDtos.map { msg ->
             ChatMessage(
                 id = msg.messageId.toString(),
                 text = msg.text,
                 isFromMe = msg.senderId == accountId,
                 time = msg.timestamp.take(16).replace("T", " "),
+                attachmentUrl = attachmentMap[msg.messageId],
             )
         }
 
@@ -211,17 +243,19 @@ class DialogueRepository : IDialogueRepository {
     }
 
     override suspend fun getMessages(dialogueId: Int): List<ChatMessage> {
-        return client.from("dialogue_message")
+        val msgDtos = client.from("dialogue_message")
             .select { filter { eq("dialogue_id", dialogueId) } }
             .decodeList<DialogueMessageEntity>()
-            .map { msg ->
-                ChatMessage(
-                    id = msg.messageId.toString(),
-                    text = msg.text,
-                    isFromMe = msg.senderId == SessionManager.currentAccountId,
-                    time = msg.timestamp.take(16).replace("T", " "),
-                )
-            }
+        val attachmentMap = attachmentUrlsFor(msgDtos.map { it.messageId })
+        return msgDtos.map { msg ->
+            ChatMessage(
+                id = msg.messageId.toString(),
+                text = msg.text,
+                isFromMe = msg.senderId == SessionManager.currentAccountId,
+                time = msg.timestamp.take(16).replace("T", " "),
+                attachmentUrl = attachmentMap[msg.messageId],
+            )
+        }
     }
 
     override suspend fun markDialogueRead(dialogueId: Int, accountId: Int) {
@@ -247,6 +281,43 @@ class DialogueRepository : IDialogueRepository {
                 put("is_read", false)
             }
         )
+    }
+
+    override suspend fun sendImageMessage(dialogueId: Int, senderId: Int, bytes: ByteArray, caption: String) {
+        // Insert the message row first (insert-with-select to obtain its new id), then upload the
+        // image and link it via a dialogue_message_attachment row. A blank caption falls back to
+        // IMAGE_PLACEHOLDER_TEXT so an uncaptioned photo still shows some text in the message list.
+        val text = caption.ifBlank { IMAGE_PLACEHOLDER_TEXT }
+        val message = client.from("dialogue_message").insert(
+            buildJsonObject {
+                put("dialogue_id", dialogueId)
+                put("sender_id", senderId)
+                put("message_text", text)
+                put("is_read", false)
+            }
+        ) { select() }.decodeSingle<DialogueMessageEntity>()
+
+        val path = "chat/$dialogueId/${message.messageId}.jpg"
+        client.storage[ATTACHMENT_BUCKET].upload(path, bytes)
+        val publicUrl = client.storage[ATTACHMENT_BUCKET].publicUrl(path)
+
+        client.from("dialogue_message_attachment").insert(
+            buildJsonObject {
+                put("dialogue_message_id", message.messageId)
+                put("attachment_link", publicUrl)
+            }
+        )
+    }
+
+    override suspend fun getAttachmentUrl(messageId: Int): String? {
+        // Direct Postgrest read, not realtime: dialogue_message_attachment is absent from the
+        // supabase_realtime publication, so its inserts never stream to clients. There is at most
+        // one attachment per message for this feature, so the first row wins.
+        return client.from("dialogue_message_attachment")
+            .select { filter { eq("dialogue_message_id", messageId) } }
+            .decodeList<DialogueMessageAttachmentEntity>()
+            .firstOrNull()
+            ?.attachmentLink
     }
 
     override suspend fun markRead(dialogueId: Int, accountId: Int) {

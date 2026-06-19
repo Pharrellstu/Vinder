@@ -53,6 +53,10 @@ class ItemDetailViewModel(
         onError: (String) -> Unit,
     ) {
         val buyerId = SessionManager.currentAccountId
+        if (sellerId == buyerId) {
+            onError("You can't buy your own listing.")
+            return
+        }
         viewModelScope.launch {
             runCatching {
                 purchaseRepo.createPurchase(itemId, buyerId, sellerId, itemPrice, SHIPPING_FEE, BUYER_PROTECTION_FEE)
@@ -68,6 +72,10 @@ class ItemDetailViewModel(
         onError: (String) -> Unit,
     ) {
         val creatorId = SessionManager.currentAccountId
+        if (sellerId == creatorId) {
+            onError("You can't make an offer on your own listing.")
+            return
+        }
         viewModelScope.launch {
             runCatching { itemRepo.createOffer(itemId, creatorId, offerPrice) }
                 .onSuccess { onSuccess() }

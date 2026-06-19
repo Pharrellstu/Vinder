@@ -17,8 +17,22 @@ import kotlinx.coroutines.withContext
 sealed class AddProductUiState {
     object Idle : AddProductUiState()
     object Uploading : AddProductUiState()
-    object Submitted : AddProductUiState()
+    data class Submitted(val itemId: Int) : AddProductUiState()
     data class Error(val message: String) : AddProductUiState()
+}
+
+/**
+ * Selectable category/condition chips for the Details step. Sourced from the DB so
+ * they always map to existing item_category/item_condition rows — picking from a
+ * hardcoded list could reference a name that was never seeded, failing the lookup.
+ */
+sealed class AddProductFormOptions {
+    object Loading : AddProductFormOptions()
+    data class Loaded(
+        val categories: List<String>,
+        val conditions: List<String>,
+    ) : AddProductFormOptions()
+    data class Error(val message: String) : AddProductFormOptions()
 }
 
 class AddProductViewModel(
@@ -27,6 +41,29 @@ class AddProductViewModel(
 
     private val _uiState = MutableStateFlow<AddProductUiState>(AddProductUiState.Idle)
     val uiState: StateFlow<AddProductUiState> = _uiState.asStateFlow()
+
+    private val _formOptions = MutableStateFlow<AddProductFormOptions>(AddProductFormOptions.Loading)
+    val formOptions: StateFlow<AddProductFormOptions> = _formOptions.asStateFlow()
+
+    init {
+        loadFormOptions()
+    }
+
+    private fun loadFormOptions() {
+        viewModelScope.launch {
+            _formOptions.value = AddProductFormOptions.Loading
+            runCatching {
+                val categories = repository.getCategoryNames()
+                val conditions = repository.getConditionNames()
+                AddProductFormOptions.Loaded(categories, conditions)
+            }.onSuccess { _formOptions.value = it }
+                .onFailure {
+                    _formOptions.value = AddProductFormOptions.Error(
+                        it.message ?: "Failed to load categories"
+                    )
+                }
+        }
+    }
 
     fun postListing(
         context: Context,
@@ -45,6 +82,14 @@ class AddProductViewModel(
         val priceDouble = price.toDoubleOrNull()
         if (priceDouble == null || priceDouble <= 0) {
             _uiState.value = AddProductUiState.Error("Invalid price")
+            return
+        }
+        if (category.isBlank()) {
+            _uiState.value = AddProductUiState.Error("Please choose a category")
+            return
+        }
+        if (condition.isBlank()) {
+            _uiState.value = AddProductUiState.Error("Please choose a condition")
             return
         }
 
@@ -75,8 +120,9 @@ class AddProductViewModel(
                 }
                 // All photos uploaded — flip listing to visible
                 repository.updateItemToListed(itemId)
-            }.onSuccess {
-                _uiState.value = AddProductUiState.Submitted
+                itemId
+            }.onSuccess { newItemId ->
+                _uiState.value = AddProductUiState.Submitted(newItemId)
             }.onFailure {
                 _uiState.value = AddProductUiState.Error(it.message ?: "Failed to post listing")
             }

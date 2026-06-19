@@ -4,8 +4,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -14,6 +17,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.vinted.ui.components.BottomNavBar
 import com.example.vinted.ui.components.FilterBottomSheet
 import com.example.vinted.ui.components.SearchFilterBar
@@ -21,40 +26,76 @@ import com.example.vinted.ui.components.SearchResultsGrid
 import com.example.vinted.ui.components.SearchResultsTopBar
 import com.example.vinted.ui.models.Product
 import com.example.vinted.ui.models.SearchFilters
+import com.example.vinted.ui.models.SearchResultsUiState
+import com.example.vinted.ui.models.SearchResultsViewModel
+import com.example.vinted.ui.theme.Grey57
+import com.example.vinted.ui.theme.VinderAzure
 import com.example.vinted.ui.theme.VintedTheme
 
 private val screenBgColor = Color(0xFFF0F0F5)
 
-private val sampleSearchResults = listOf(
-    Product("r1", "Linen midi dress", 28f, 45f, 38, "M", "& Other Stories", "L", "lena.k", 4.9f),
-    Product("r2", "Linen wrap dress", 32f, null, null, "S", "Mango", "S", "sophie.b", 4.6f),
-    Product("r3", "Linen shirt dress", 38f, 60f, 36, "M", "COS", "M", "maya.r", 5.0f),
-    Product("r4", "Linen tunic", 24f, null, null, "L", "Uniqlo", "N", "noah.dev", 4.8f),
-    Product("r5", "Linen sundress", 42f, 75f, 44, "S", "Aritzia", "C", "chloe.p", 4.9f),
-    Product("r6", "Linen maxi dress", 55f, null, null, "M", "Reformation", "E", "emma.w", 5.0f),
-)
+private fun matchesFilters(product: Product, filters: SearchFilters): Boolean {
+    val categoryMatch = filters.categories.isEmpty() || product.category in filters.categories
+    val conditionMatch = filters.conditions.isEmpty() || product.condition in filters.conditions
+    val sizeMatch = filters.sizes.isEmpty() || product.size in filters.sizes
+    val priceMatch = product.price in filters.minPrice..filters.maxPrice
+    return categoryMatch && conditionMatch && sizeMatch && priceMatch
+}
+
+private enum class SortOrder(val label: String) {
+    NONE("Sort ↕"),
+    PRICE_LOW_TO_HIGH("Price ↑"),
+    PRICE_HIGH_TO_LOW("Price ↓"),
+}
+
+private fun SortOrder.next(): SortOrder = when (this) {
+    SortOrder.NONE -> SortOrder.PRICE_LOW_TO_HIGH
+    SortOrder.PRICE_LOW_TO_HIGH -> SortOrder.PRICE_HIGH_TO_LOW
+    SortOrder.PRICE_HIGH_TO_LOW -> SortOrder.NONE
+}
 
 @Composable
-fun SearchResultsScreen(onTabSelected: (Int) -> Unit = {}) {
-    var filters by remember {
-        mutableStateOf(
-            SearchFilters(
-                categories = setOf("Women", "Kids"),
-                conditions = setOf("Like new", "Good"),
-            ),
-        )
+fun SearchResultsScreen(
+    onTabSelected: (Int) -> Unit = {},
+    viewModel: SearchResultsViewModel = viewModel(),
+) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    var filters by remember { mutableStateOf(SearchFilters()) }
+    var showFilters by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    var sortOrder by remember { mutableStateOf(SortOrder.NONE) }
+
+    val items = (uiState as? SearchResultsUiState.Success)?.items ?: emptyList()
+    val filteredResults = items.filter { matchesFilters(it, filters) }
+    val resultCount = filteredResults.size
+    val sortedResults = when (sortOrder) {
+        SortOrder.NONE -> filteredResults
+        SortOrder.PRICE_LOW_TO_HIGH -> filteredResults.sortedBy { it.price }
+        SortOrder.PRICE_HIGH_TO_LOW -> filteredResults.sortedByDescending { it.price }
     }
-    var showFilters by remember { mutableStateOf(true) }
-    val resultCount = 142
 
     Scaffold(
         topBar = {
             Column {
-                SearchResultsTopBar(query = "linen dress", onBack = {}, onClear = {})
+                SearchResultsTopBar(
+                    query = searchQuery,
+                    onQueryChange = {
+                        searchQuery = it
+                        viewModel.search(it)
+                    },
+                    onBack = { onTabSelected(0) },
+                    onClear = {
+                        searchQuery = ""
+                        viewModel.search("")
+                    },
+                )
                 SearchFilterBar(
+                    sortLabel = sortOrder.label,
+                    sortActive = sortOrder != SortOrder.NONE,
                     filterCount = filters.activeCount,
                     itemCount = resultCount,
-                    onSortClick = {},
+                    onSortClick = { sortOrder = sortOrder.next() },
                     onFilterClick = { showFilters = true },
                 )
             }
@@ -63,10 +104,24 @@ fun SearchResultsScreen(onTabSelected: (Int) -> Unit = {}) {
         containerColor = screenBgColor,
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            SearchResultsGrid(
-                products = sampleSearchResults,
-                modifier = Modifier.fillMaxSize(),
-            )
+            when (val state = uiState) {
+                is SearchResultsUiState.Loading -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = VinderAzure)
+                    }
+                }
+                is SearchResultsUiState.Error -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(state.message, color = Grey57, fontSize = 14.sp)
+                    }
+                }
+                is SearchResultsUiState.Success -> {
+                    SearchResultsGrid(
+                        products = sortedResults,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
             if (showFilters) {
                 FilterBottomSheet(
                     filters = filters,

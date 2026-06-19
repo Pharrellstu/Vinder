@@ -12,4 +12,8 @@ data class Product(
     val sellerName: String,
     val rating: Float,
     val sellerId: Int = -1,
+    val category: String = "",
+    val condition: String = "",
+    val isFavorite: Boolean = false,
+    val coverImageUrl: String? = null,
 )

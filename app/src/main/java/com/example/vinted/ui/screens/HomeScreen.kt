@@ -16,6 +16,7 @@ import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,25 +36,35 @@ import com.example.vinted.ui.components.HeroBanner
 import com.example.vinted.ui.components.SaleProductCard
 import com.example.vinted.ui.models.HomeUiState
 import com.example.vinted.ui.models.HomeViewModel
+import com.example.vinted.ui.models.PriceBucket
 import com.example.vinted.ui.models.Product
 import com.example.vinted.ui.theme.Grey11
 import com.example.vinted.ui.theme.Grey57
 import com.example.vinted.ui.theme.Grey91
 import com.example.vinted.ui.theme.VinderAzure
 import com.example.vinted.ui.theme.VintedTheme
+import com.example.vinted.ui.theme.instrumentSerifNormal
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onTabSelected: (Int) -> Unit = {},
     onProductClick: (Product) -> Unit = {},
     viewModel: HomeViewModel = viewModel(),
 ) {
-    var selectedCategory by remember { mutableStateOf("All") }
     val uiState by viewModel.uiState.collectAsState()
+    var searchExpanded by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         containerColor = Color(0xFFF5F6F8),
+        topBar = {
+            VinderTopBar(
+                onSearchToggle = {
+                    searchExpanded = !searchExpanded
+                    // Clear any active query when the search field is collapsed.
+                    if (!searchExpanded) viewModel.onSearchQueryChanged("")
+                },
+            )
+        },
         bottomBar = { BottomNavBar(selectedIndex = 0, onItemSelected = onTabSelected) },
     ) { padding ->
         when (val state = uiState) {
@@ -87,11 +98,20 @@ fun HomeScreen(
                 }
                 Box(modifier = Modifier.fillMaxSize().padding(padding)) {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        VinderTopBar()
+                        if (searchExpanded) {
+                            SearchField(
+                                query = state.searchQuery,
+                                onQueryChange = viewModel::onSearchQueryChanged,
+                            )
+                        }
                         CategoryFilterRow(
                             categories = state.categories,
-                            selectedCategory = selectedCategory,
-                            onCategorySelected = { selectedCategory = it },
+                            selectedCategory = state.selectedCategory,
+                            onCategorySelected = viewModel::onCategorySelected,
+                        )
+                        PriceFilterRow(
+                            selectedBucket = state.selectedPriceBucket,
+                            onBucketSelected = viewModel::onPriceBucketSelected,
                         )
                         LazyColumn(state = listState) {
                             item { Spacer(modifier = Modifier.height(16.dp)) }
@@ -105,7 +125,11 @@ fun HomeScreen(
                             item { LatestFindsHeader(itemCount = state.gridItems.size) }
                             item { Spacer(modifier = Modifier.height(12.dp)) }
                             items(state.gridItems.chunked(2)) { row ->
-                                ProductGridRow(products = row, onProductClick = onProductClick)
+                                ProductGridRow(
+                                    products = row,
+                                    onProductClick = onProductClick,
+                                    onToggleFavorite = viewModel::onToggleFavorite,
+                                )
                             }
                             item { Spacer(modifier = Modifier.height(24.dp)) }
                         }
@@ -146,19 +170,19 @@ private fun BackToTopButton(onClick: () -> Unit, modifier: Modifier = Modifier) 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun VinderTopBar() {
+private fun VinderTopBar(onSearchToggle: () -> Unit) {
     TopAppBar(
         title = {
             Text(
                 text = "Vinder",
                 color = VinderAzure,
                 fontSize = 22.sp,
-                fontWeight = FontWeight.Normal,
+                fontFamily = instrumentSerifNormal,
                 fontStyle = FontStyle.Italic,
             )
         },
         actions = {
-            IconButton(onClick = {}) {
+            IconButton(onClick = onSearchToggle) {
                 Icon(Icons.Outlined.Search, contentDescription = "Search", tint = Grey11)
             }
             IconButton(onClick = {}) {
@@ -166,6 +190,29 @@ private fun VinderTopBar() {
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        singleLine = true,
+        placeholder = { Text("Search items", color = Grey57) },
+        leadingIcon = {
+            Icon(Icons.Outlined.Search, contentDescription = null, tint = Grey57)
+        },
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = VinderAzure,
+            focusedLeadingIconColor = VinderAzure,
+            cursorColor = VinderAzure,
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
     )
 }
 
@@ -188,6 +235,30 @@ private fun CategoryFilterRow(
                 label = category,
                 selected = category == selectedCategory,
                 onClick = { onCategorySelected(category) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun PriceFilterRow(
+    selectedBucket: PriceBucket,
+    onBucketSelected: (PriceBucket) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White)
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        PriceBucket.entries.forEach { bucket ->
+            CategoryChip(
+                label = bucket.label,
+                selected = bucket == selectedBucket,
+                onClick = { onBucketSelected(bucket) },
             )
         }
     }
@@ -255,7 +326,11 @@ private fun SaleProductsRow(products: List<Product>, onProductClick: (Product) -
 }
 
 @Composable
-private fun ProductGridRow(products: List<Product>, onProductClick: (Product) -> Unit) {
+private fun ProductGridRow(
+    products: List<Product>,
+    onProductClick: (Product) -> Unit,
+    onToggleFavorite: (Product) -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -266,6 +341,7 @@ private fun ProductGridRow(products: List<Product>, onProductClick: (Product) ->
             GridProductCard(
                 product = product,
                 onClick = { onProductClick(product) },
+                onToggleFavorite = { onToggleFavorite(product) },
                 modifier = Modifier.weight(1f),
             )
         }

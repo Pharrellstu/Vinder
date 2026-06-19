@@ -40,14 +40,22 @@ class RegistrationViewModel(
         viewModelScope.launch {
             _uiState.value = RegistrationUiState.Loading
             repository.isNicknameTaken(nickname)
-                .onSuccess { taken ->
-                    if (taken) {
+                .onSuccess { nicknameTaken ->
+                    if (nicknameTaken) {
                         _uiState.value = RegistrationUiState.Error(NICKNAME_TAKEN_MESSAGE)
-                    } else {
-                        repository.register(nickname, email, password)
-                            .onSuccess { _uiState.value = RegistrationUiState.Success(email) }
-                            .onFailure { _uiState.value = RegistrationUiState.Error(it.message ?: "Unknown error") }
+                        return@launch
                     }
+                    repository.isEmailTaken(email)
+                        .onSuccess { emailTaken ->
+                            if (emailTaken) {
+                                _uiState.value = RegistrationUiState.Error(EMAIL_TAKEN_MESSAGE)
+                                return@onSuccess
+                            }
+                            repository.register(nickname, email, password)
+                                .onSuccess { _uiState.value = RegistrationUiState.Success(email) }
+                                .onFailure { _uiState.value = RegistrationUiState.Error(it.message ?: "Unknown error") }
+                        }
+                        .onFailure { _uiState.value = RegistrationUiState.Error(it.message ?: "Unknown error") }
                 }
                 .onFailure { _uiState.value = RegistrationUiState.Error(it.message ?: "Unknown error") }
         }
@@ -65,6 +73,7 @@ class RegistrationViewModel(
         const val EMPTY_CREDENTIALS_MESSAGE = "All fields must not be empty"
         const val PASSWORD_MISMATCH_MESSAGE = "Passwords do not match"
         const val NICKNAME_TAKEN_MESSAGE = "This nickname is already taken"
+        const val EMAIL_TAKEN_MESSAGE = "This email is already registered"
         const val EMAIL_SENT_MESSAGE = "A confirmation link has been sent to"
         const val WEAK_PASSWORD_PREFIX = "Password is too weak. It needs: "
 
