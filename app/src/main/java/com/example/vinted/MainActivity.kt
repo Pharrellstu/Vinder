@@ -41,6 +41,7 @@ import com.example.vinted.ui.screens.HomeScreen
 import com.example.vinted.ui.screens.ItemDetailScreen
 import com.example.vinted.ui.screens.LoginScreen
 import com.example.vinted.ui.screens.MessagesScreen
+import com.example.vinted.ui.screens.MyListingsScreen
 import com.example.vinted.ui.screens.NotificationSettingsScreen
 import com.example.vinted.ui.screens.OffersScreen
 import com.example.vinted.ui.screens.OrderHistoryScreen
@@ -149,6 +150,8 @@ private fun MainTabs(onLoggedOut: () -> Unit) {
     var showOffers by rememberSaveable { mutableStateOf(false) }
     var showOrderHistory by rememberSaveable { mutableStateOf(false) }
     var showWishlist by rememberSaveable { mutableStateOf(false) }
+    var showMyListings by rememberSaveable { mutableStateOf(false) }
+    var editItemId by remember { mutableStateOf<Int?>(null) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var showNotifications by rememberSaveable { mutableStateOf(false) }
     var profileReloadToken by rememberSaveable { mutableStateOf(0) }
@@ -205,6 +208,35 @@ private fun MainTabs(onLoggedOut: () -> Unit) {
     if (showWishlist) {
         BackHandler { showWishlist = false }
         WishlistScreen(onBack = { showWishlist = false }, onProductClick = { openProduct = it })
+        return
+    }
+
+    // Editing a listing reuses the Add Product flow in edit mode. Its own ViewModel key
+    // keeps it separate from the create flow's state. Sits on top of My Listings.
+    val editingItemId = editItemId
+    if (editingItemId != null) {
+        BackHandler { editItemId = null }
+        AddProductScreen(
+            editItemId = editingItemId,
+            viewModel = viewModel(key = "addProductEdit"),
+            onBack = { editItemId = null },
+            onPosted = {
+                editItemId = null
+                showMyListings = true
+            },
+        )
+        return
+    }
+
+    if (showMyListings) {
+        BackHandler { showMyListings = false }
+        MyListingsScreen(
+            onBack = { showMyListings = false },
+            onEditListing = { itemId ->
+                showMyListings = false
+                editItemId = itemId
+            },
+        )
         return
     }
 
@@ -274,6 +306,7 @@ private fun MainTabs(onLoggedOut: () -> Unit) {
                 onShowOffers = { showOffers = true },
                 onShowOrders = { showOrderHistory = true },
                 onShowWishlist = { showWishlist = true },
+                onShowMyListings = { showMyListings = true },
             )
         }
         else -> HomeScreen(onTabSelected = onTabSelected, onProductClick = { openProduct = it })

@@ -51,6 +51,7 @@ fun ProfileScreen(
     onShowOffers: () -> Unit = {},
     onShowOrders: () -> Unit = {},
     onShowWishlist: () -> Unit = {},
+    onShowMyListings: () -> Unit = {},
     accountId: Int? = null,
     viewModel: ProfileViewModel = viewModel(
         factory = object : androidx.lifecycle.ViewModelProvider.Factory {
@@ -121,6 +122,7 @@ fun ProfileScreen(
                             onShowOffers = onShowOffers,
                             onShowOrders = onShowOrders,
                             onShowWishlist = onShowWishlist,
+                            onShowMyListings = onShowMyListings,
                         )
                     }
                     item {
@@ -254,6 +256,7 @@ private fun ProfileActionButtons(
     onShowOffers: () -> Unit,
     onShowOrders: () -> Unit,
     onShowWishlist: () -> Unit,
+    onShowMyListings: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -303,14 +306,27 @@ private fun ProfileActionButtons(
                 modifier = Modifier.weight(1f),
             )
         }
-        ActionButton(
-            label = "Wishlist",
-            bgColor = Color.White,
-            textColor = Color.Black,
-            borderColor = Grey91,
-            onClick = onShowWishlist,
+        Row(
             modifier = Modifier.fillMaxWidth(),
-        )
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ActionButton(
+                label = "My listings",
+                bgColor = Color.White,
+                textColor = Color.Black,
+                borderColor = Grey91,
+                onClick = onShowMyListings,
+                modifier = Modifier.weight(1f),
+            )
+            ActionButton(
+                label = "Wishlist",
+                bgColor = Color.White,
+                textColor = Color.Black,
+                borderColor = Grey91,
+                onClick = onShowWishlist,
+                modifier = Modifier.weight(1f),
+            )
+        }
     }
 }
 

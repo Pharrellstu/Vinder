@@ -34,6 +34,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.vinted.data.SessionManager
+import com.example.vinted.data.dto.ItemPhotoEntity
 import com.example.vinted.ui.models.AddProductFormOptions
 import com.example.vinted.ui.models.AddProductUiState
 import com.example.vinted.ui.models.AddProductViewModel
@@ -62,15 +63,31 @@ import kotlinx.coroutines.launch
 
 private const val MAX_PHOTOS = 6
 
+/**
+ * A photo in the add/edit grid: either one already stored for the listing (edit mode)
+ * or a freshly picked local image. Coil renders both a URL string and a content [Uri].
+ */
+sealed interface PhotoRef {
+    data class Existing(val row: ItemPhotoEntity) : PhotoRef
+    data class New(val uri: Uri) : PhotoRef
+}
+
+private fun PhotoRef.model(): Any = when (this) {
+    is PhotoRef.Existing -> row.photoUrl
+    is PhotoRef.New -> uri
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddProductScreen(
     onBack: () -> Unit = {},
     onPosted: (Product) -> Unit = {},
+    editItemId: Int? = null,
     viewModel: AddProductViewModel = viewModel(),
 ) {
+    val isEditMode = editItemId != null
     var currentStep by remember { mutableStateOf(1) }
-    val selectedPhotos = remember { mutableStateListOf<Uri>() }
+    val selectedPhotos = remember { mutableStateListOf<PhotoRef>() }
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var price by remember { mutableStateOf("") }
@@ -80,7 +97,31 @@ fun AddProductScreen(
     val scope = rememberCoroutineScope()
     val uiState by viewModel.uiState.collectAsState()
     val formOptions by viewModel.formOptions.collectAsState()
+    val editData by viewModel.editData.collectAsState()
     val context = LocalContext.current
+
+    // Original photos for the edited listing, used to diff removals on save.
+    val originalPhotos = editData?.photos ?: emptyList()
+
+    LaunchedEffect(editItemId) {
+        if (editItemId != null) viewModel.loadForEdit(editItemId)
+    }
+
+    // Prefill the form once the listing data arrives (edit mode only).
+    var prefilled by remember { mutableStateOf(false) }
+    LaunchedEffect(editData) {
+        val data = editData
+        if (data != null && data.itemId == editItemId && !prefilled) {
+            title = data.name
+            description = data.description
+            price = if (data.price % 1.0 == 0.0) data.price.toInt().toString() else data.price.toString()
+            category = data.category
+            condition = data.condition
+            selectedPhotos.clear()
+            selectedPhotos.addAll(data.photos.map { PhotoRef.Existing(it) })
+            prefilled = true
+        }
+    }
 
     LaunchedEffect(uiState) {
         when (val state = uiState) {
@@ -116,7 +157,7 @@ fun AddProductScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Add New Product",
+                        text = if (isEditMode) "Edit listing" else "Add New Product",
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 17.sp,
                         color = Grey11,
@@ -175,18 +216,39 @@ fun AddProductScreen(
                     price = price,
                     category = category,
                     condition = condition,
+                    isEditMode = isEditMode,
                     isLoading = uiState is AddProductUiState.Uploading,
                     onEdit = { currentStep = 2 },
                     onPost = {
-                        viewModel.postListing(
-                            context = context,
-                            photoUris = selectedPhotos.toList(),
-                            title = title,
-                            description = description,
-                            price = price,
-                            category = category,
-                            condition = condition,
-                        )
+                        val newUris = selectedPhotos.filterIsInstance<PhotoRef.New>().map { it.uri }
+                        if (isEditMode && editItemId != null) {
+                            val keptIds = selectedPhotos
+                                .filterIsInstance<PhotoRef.Existing>()
+                                .map { it.row.itemPhotoId }
+                                .toSet()
+                            val removedPhotos = originalPhotos.filter { it.itemPhotoId !in keptIds }
+                            viewModel.updateListing(
+                                context = context,
+                                itemId = editItemId,
+                                title = title,
+                                description = description,
+                                price = price,
+                                category = category,
+                                condition = condition,
+                                removedPhotos = removedPhotos,
+                                newPhotoUris = newUris,
+                            )
+                        } else {
+                            viewModel.postListing(
+                                context = context,
+                                photoUris = newUris,
+                                title = title,
+                                description = description,
+                                price = price,
+                                category = category,
+                                condition = condition,
+                            )
+                        }
                     },
                 )
             }
@@ -263,7 +325,7 @@ private fun StepProgressIndicator(currentStep: Int) {
 
 @Composable
 private fun PhotosStep(
-    selectedPhotos: MutableList<Uri>,
+    selectedPhotos: MutableList<PhotoRef>,
     onNext: () -> Unit,
     onPermissionDenied: (String) -> Unit,
 ) {
@@ -274,7 +336,7 @@ private fun PhotosStep(
         ActivityResultContracts.PickMultipleVisualMedia(MAX_PHOTOS),
     ) { uris ->
         val remaining = MAX_PHOTOS - selectedPhotos.size
-        selectedPhotos.addAll(uris.take(remaining))
+        selectedPhotos.addAll(uris.take(remaining).map { PhotoRef.New(it) })
     }
 
     val cameraLauncher = rememberLauncherForActivityResult(
@@ -283,7 +345,7 @@ private fun PhotosStep(
         if (bitmap != null) {
             val uri = saveBitmapToCache(context, bitmap)
             if (uri != null && selectedPhotos.size < MAX_PHOTOS) {
-                selectedPhotos.add(uri)
+                selectedPhotos.add(PhotoRef.New(uri))
             }
         }
     }
@@ -360,8 +422,8 @@ private fun PhotosStep(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            itemsIndexed(selectedPhotos) { index, uri ->
-                PhotoTile(uri = uri, isCover = index == 0) {
+            itemsIndexed(selectedPhotos) { index, ref ->
+                PhotoTile(model = ref.model(), isCover = index == 0) {
                     selectedPhotos.removeAt(index)
                 }
             }
@@ -383,7 +445,7 @@ private fun PhotosStep(
 }
 
 @Composable
-private fun PhotoTile(uri: Uri, isCover: Boolean, modifier: Modifier = Modifier, onRemove: () -> Unit) {
+private fun PhotoTile(model: Any?, isCover: Boolean, modifier: Modifier = Modifier, onRemove: () -> Unit) {
     Box(
         modifier = modifier
             .aspectRatio(1f)
@@ -394,7 +456,7 @@ private fun PhotoTile(uri: Uri, isCover: Boolean, modifier: Modifier = Modifier,
             ),
     ) {
         AsyncImage(
-            model = uri,
+            model = model,
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
@@ -567,12 +629,13 @@ private fun DetailsStep(
 
 @Composable
 private fun ConfirmationStep(
-    selectedPhotos: List<Uri>,
+    selectedPhotos: List<PhotoRef>,
     title: String,
     description: String,
     price: String,
     category: String,
     condition: String,
+    isEditMode: Boolean = false,
     isLoading: Boolean = false,
     onEdit: () -> Unit,
     onPost: () -> Unit,
@@ -603,9 +666,9 @@ private fun ConfirmationStep(
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    selectedPhotos.forEach { uri ->
+                    selectedPhotos.forEach { ref ->
                         AsyncImage(
-                            model = uri,
+                            model = ref.model(),
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
@@ -641,7 +704,12 @@ private fun ConfirmationStep(
 
         Spacer(Modifier.height(24.dp))
         PrimaryButton(
-            text = if (isLoading) "Posting…" else "Post Listing",
+            text = when {
+                isLoading && isEditMode -> "Saving…"
+                isLoading -> "Posting…"
+                isEditMode -> "Save changes"
+                else -> "Post Listing"
+            },
             enabled = !isLoading,
             onClick = onPost,
         )
