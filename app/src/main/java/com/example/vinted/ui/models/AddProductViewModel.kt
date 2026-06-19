@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.vinted.data.IItemRepository
 import com.example.vinted.data.ItemRepository
 import com.example.vinted.data.SessionManager
+import com.example.vinted.data.dto.ItemPhotoEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -45,8 +46,24 @@ class AddProductViewModel(
     private val _formOptions = MutableStateFlow<AddProductFormOptions>(AddProductFormOptions.Loading)
     val formOptions: StateFlow<AddProductFormOptions> = _formOptions.asStateFlow()
 
+    // Existing listing being edited; null in create mode. Drives the form prefill.
+    private val _editData = MutableStateFlow<EditableItem?>(null)
+    val editData: StateFlow<EditableItem?> = _editData.asStateFlow()
+
     init {
         loadFormOptions()
+    }
+
+    fun loadForEdit(itemId: Int) {
+        if (_editData.value?.itemId == itemId) return
+        // Drop any previously loaded item so the form never prefills stale data while
+        // the new one is being fetched.
+        _editData.value = null
+        viewModelScope.launch {
+            runCatching { repository.getItemForEdit(itemId) }
+                .onSuccess { _editData.value = it }
+                .onFailure { _uiState.value = AddProductUiState.Error(it.message ?: "Failed to load listing") }
+        }
     }
 
     private fun loadFormOptions() {
@@ -125,6 +142,65 @@ class AddProductViewModel(
                 _uiState.value = AddProductUiState.Submitted(newItemId)
             }.onFailure {
                 _uiState.value = AddProductUiState.Error(it.message ?: "Failed to post listing")
+            }
+        }
+    }
+
+    fun updateListing(
+        context: Context,
+        itemId: Int,
+        title: String,
+        description: String,
+        price: String,
+        category: String,
+        condition: String,
+        removedPhotos: List<ItemPhotoEntity>,
+        newPhotoUris: List<Uri>,
+    ) {
+        val priceDouble = price.toDoubleOrNull()
+        if (priceDouble == null || priceDouble <= 0) {
+            _uiState.value = AddProductUiState.Error("Invalid price")
+            return
+        }
+        if (category.isBlank()) {
+            _uiState.value = AddProductUiState.Error("Please choose a category")
+            return
+        }
+        if (condition.isBlank()) {
+            _uiState.value = AddProductUiState.Error("Please choose a condition")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.value = AddProductUiState.Uploading
+            runCatching {
+                val categoryId = repository.getCategoryId(category)
+                val conditionId = repository.getConditionId(condition)
+                repository.updateItem(
+                    itemId = itemId,
+                    name = title,
+                    description = description,
+                    price = priceDouble,
+                    categoryId = categoryId,
+                    conditionId = conditionId,
+                )
+                removedPhotos.forEach { repository.deleteItemPhoto(it.itemPhotoId, it.photoUrl) }
+                // Read new photo bytes on IO before uploading, mirroring postListing().
+                val newPhotoBytes = withContext(Dispatchers.IO) {
+                    newPhotoUris.map { uri ->
+                        context.contentResolver.openInputStream(uri)?.readBytes()
+                            ?: error("Failed to read photo: $uri")
+                    }
+                }
+                newPhotoBytes.forEach { bytes ->
+                    val url = repository.uploadPhotoUnique(itemId, bytes)
+                    repository.insertItemPhoto(itemId, url)
+                }
+                itemId
+            }.onSuccess {
+                _uiState.value = AddProductUiState.Submitted(it)
+            }.onFailure {
+                _uiState.value = AddProductUiState.Error(it.message ?: "Failed to update listing")
             }
         }
     }

@@ -7,4 +7,5 @@ data class ListingItem(
     val price: Int,
     val bgColor: Color,
     val coverUrl: String? = null,
+    val name: String = "",
 )

@@ -2,21 +2,26 @@ package com.example.vinted.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -33,6 +38,7 @@ import com.example.vinted.ui.components.GridProductCard
 import com.example.vinted.ui.models.Product
 import com.example.vinted.ui.models.WishlistUiState
 import com.example.vinted.ui.models.WishlistViewModel
+import com.example.vinted.ui.theme.Grey11
 import com.example.vinted.ui.theme.Grey57
 import com.example.vinted.ui.theme.Grey97
 import com.example.vinted.ui.theme.VinderAzure
@@ -47,43 +53,58 @@ fun WishlistScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
+        containerColor = Grey97,
         topBar = {
             TopAppBar(
-                title = { Text("Wishlist", fontWeight = FontWeight.SemiBold, fontSize = 18.sp) },
+                title = {
+                    Text("My wishlist", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Grey11)
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back", tint = Grey11)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
             )
         },
-        containerColor = Grey97,
     ) { padding ->
         when (val state = uiState) {
-            is WishlistUiState.Loading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(padding),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator(color = VinderAzure)
-                }
+            is WishlistUiState.Loading -> Box(
+                modifier = Modifier.fillMaxSize().padding(padding),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(color = VinderAzure)
             }
-            is WishlistUiState.Error -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(padding),
-                    contentAlignment = Alignment.Center,
-                ) {
+
+            is WishlistUiState.Error -> Box(
+                modifier = Modifier.fillMaxSize().padding(padding),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(state.message, color = Grey57, fontSize = 14.sp)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    TextButton(onClick = { viewModel.load() }) {
+                        Text("Retry", color = VinderAzure)
+                    }
                 }
             }
+
             is WishlistUiState.Success -> {
                 if (state.items.isEmpty()) {
                     Box(
                         modifier = Modifier.fillMaxSize().padding(padding),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text("No saved items yet", color = Grey57, fontSize = 15.sp)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Outlined.FavoriteBorder,
+                                contentDescription = null,
+                                tint = Grey57,
+                                modifier = Modifier.size(48.dp),
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text("No saved items yet", color = Grey57, fontSize = 14.sp)
+                        }
                     }
                 } else {
                     LazyColumn(

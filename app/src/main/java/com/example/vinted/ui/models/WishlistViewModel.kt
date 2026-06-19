@@ -28,21 +28,29 @@ class WishlistViewModel(
     }
 
     fun load() {
+        val accountId = SessionManager.currentAccountId
+        if (accountId == SessionManager.NO_ACCOUNT_ID) {
+            _uiState.value = WishlistUiState.Success(emptyList())
+            return
+        }
+        _uiState.value = WishlistUiState.Loading
         viewModelScope.launch {
-            _uiState.value = WishlistUiState.Loading
-            runCatching {
-                repository.getFavoriteItems(SessionManager.currentAccountId)
-            }.onSuccess { _uiState.value = WishlistUiState.Success(it) }
-             .onFailure { _uiState.value = WishlistUiState.Error(it.message ?: "Failed to load wishlist") }
+            runCatching { repository.getFavoriteItems(accountId) }
+                .onSuccess { _uiState.value = WishlistUiState.Success(it) }
+                .onFailure { _uiState.value = WishlistUiState.Error(it.message ?: "Failed to load wishlist") }
         }
     }
 
     fun removeFromWishlist(product: Product) {
-        val itemId = product.id.toIntOrNull() ?: return
+        val accountId = SessionManager.currentAccountId
+        if (accountId == SessionManager.NO_ACCOUNT_ID) return
+        val current = _uiState.value as? WishlistUiState.Success ?: return
+        val optimistic = current.items.filter { it.id != product.id }
+        _uiState.value = WishlistUiState.Success(optimistic)
         viewModelScope.launch {
-            runCatching {
-                repository.removeFavorite(SessionManager.currentAccountId, itemId)
-            }.onSuccess { load() }
+            val itemId = product.id.toIntOrNull() ?: return@launch
+            runCatching { repository.removeFavorite(accountId, itemId) }
+                .onFailure { _uiState.value = current }
         }
     }
 }

@@ -37,6 +37,12 @@ App is now Supabase-hosted on the web, not the local Docker stack this document 
 - **Chat now supports image attachments, with a WhatsApp-style send preview.** Tapping the (previously decorative, unwired) circular icon slot left of the chat text field opens a gallery picker; the picked image opens a full-screen preview (image, cancel, optional one-line caption, send) before anything is uploaded — nothing sends on pick alone. Confirmed sends upload to the existing public `item-photos` bucket under a `chat/{dialogueId}/...` path (no new bucket/policy needed — that bucket's upload policy isn't path-restricted) and insert a `dialogue_message` + `dialogue_message_attachment` row. `ChatMessage` gained `attachmentUrl`; `DialogueRepository`'s four message-building call sites populate it via a bulk join, mirroring the existing cover-photo pattern.
   - **Found and fixed a real display bug in the same feature:** the first implementation pass relied on a second Realtime subscription on `dialogue_message_attachment` inserts to learn about new attachments, but that table was never added to the `supabase_realtime` publication (only `dialogue_message`/`dialogue` were, per `database/migrations/003_chat_realtime_and_policies.sql`) — so those events could never arrive, and every image permanently rendered as a "📷 Photo" text placeholder instead of the photo, for both sender and recipient. Fixed by dropping that dead subscription and instead doing a direct Postgrest lookup of the attachment row whenever any new `dialogue_message` insert arrives (cheap, since chat messages arrive at human-typing cadence, not high QPS) — works identically regardless of whether the image has a caption.
 
+## Changelog — Updates Since This Audit (2026-06-18, third session)
+
+- **Wishlist heart added to `ItemDetailScreen` and RLS enabled for `account_favorite`.** The heart toggle was previously only on `GridProductCard` in the feed; `ItemDetailScreen` now also shows a filled/outlined heart in the top bar that persists to `account_favorite`. Migration `006` adds `ENABLE ROW LEVEL SECURITY` + owner-scoped SELECT/INSERT/DELETE policies on `account_favorite` — the first application-data table (outside `dialogue`/`dialogue_message`) to be protected.
+- **Listing edit/delete (My Listings) implemented end-to-end.** `ProfileScreen` now has a "My Listings" tab that shows the current user's own items. Tapping a listing opens `ItemDetailScreen` with an edit mode: name, description, price, condition, and category are all editable in-place. Mark-as-sold and delete are available from both `ItemDetailScreen` (owner view) and the My Listings tab. `ItemRepository` gained `updateItem()` and `deleteItem()`; ownership is enforced at the app level (seller ID check) and will additionally be covered by the Priority 1 RLS migration on `item`.
+- **Opening item detail from search results.** `SearchResultsScreen` cards were previously non-tappable; tapping a `SearchResultCard` now navigates to `ItemDetailScreen` for that item, consistent with the home feed.
+
 ---
 
 ## RE-AUDIT UPDATE REPORT
@@ -65,9 +71,9 @@ App is now Supabase-hosted on the web, not the local Docker stack this document 
 | 3 | Notification settings persistence — in-memory only | ❌ Missing | ✅ Resolved | `NotificationPreferences` (`data/NotificationPreferences.kt`) writes to SharedPreferences; `NotificationSettingsViewModel` reads from it; survives process kill; commit `4dea618` |
 | 4 | Duplicate auth ViewModels — `AuthViewModel` + `LoginViewModel` | ❌ Open | ✅ Resolved | `AuthViewModel.kt` and `AuthenticateAccountScreen.kt` deleted; `RegistrationViewModel.kt` added to replace the registration half; no dead references remain |
 | 5 | RLS missing on `dialogue` / `dialogue_message` | ❌ Critical | ✅ Resolved | Migration `003_chat_realtime_and_policies.sql` enables RLS and adds participant-scoped policies for SELECT/INSERT/UPDATE on both tables; Realtime publication added |
-| 6 | RLS missing on all other public tables | ❌ Critical | ❌ Open | `dialogue` + `dialogue_message` now protected (see #5); remaining 13 tables (`account`, `item`, `item_photo`, `item_offer`, `purchase`, `item_category`, `item_condition`, `status`, `rating`, `account_following`, `account_rating`, `account_favorite`, `account_side_information`) still have no RLS |
+| 6 | RLS missing on all other public tables | ❌ Critical | ❌ Open | `dialogue` + `dialogue_message` protected (see #5); `account_favorite` protected (migration 006, third session); remaining 12 tables (`account`, `item`, `item_photo`, `item_offer`, `purchase`, `item_category`, `item_condition`, `status`, `rating`, `account_following`, `account_rating`, `account_side_information`) still have no RLS |
 | 7 | Client-side fee calculation (`ItemDetailViewModel.kt:38-39`) | ⚠ High | ❌ Open | `SHIPPING_FEE = 3.95`, `BUYER_PROTECTION_FEE = 0.90` still hardcoded in client; client still sends fee amounts to DB; spoofable |
-| 8 | `markAsSold()` + `updateItemToListed()` no ownership check | ⚠ High | ❌ Open | No RLS on `item` table; app-level guard absent; any authenticated user can mark any item sold |
+| 8 | `markAsSold()` + `updateItemToListed()` no ownership check | ⚠ High | ❌ Open | No RLS on `item` table; app-level seller-ID guard added in third session; DB-level still missing |
 | 9 | `item-photos` storage upload path not user-scoped | ⚠ High | ❌ Open | `001_create_item_photos_bucket.sql` policy still only checks `bucket_id = 'item-photos'`; any authenticated user can overwrite `items/<other_user_id>/...` |
 | 10 | No file type/size limit on `item-photos` bucket | 🟡 Medium | ❌ Open | `file_size_limit = NULL`, `allowed_mime_types = NULL` unchanged |
 | 11 | `SessionManager.currentAccountId` default was `0` | 🟡 Medium | ✅ Resolved | Changed to `NO_ACCOUNT_ID = -1`; `isLoggedIn()` guard added; `confirmBuy()`/`submitOffer()` pass through `SessionManager.currentAccountId` which is now `-1` (not `0`) when unset — still no null-guard in call sites but sentinel is no longer a valid account ID |
@@ -128,14 +134,14 @@ Only features whose status changed since the 2026-06-18 audit:
 | User profile (view) | ✅ | `ProfileScreen` + `SellerPublicProfileScreen` load from DB |
 | User profile (edit) | ✅ | `EditProfileViewModel` + `AccountRepository.updateProfile()` |
 | Avatar upload | 🔶 | Uploads to `item-photos` bucket under `avatars/` prefix — no dedicated bucket, no size/type limit |
-| Listings (create) | ✅ | `AddProductScreen` + full photo upload flow; category/condition chips load real DB names via `getCategoryNames()`/`getConditionNames()` — can no longer fail on name mismatch |
-| Listings (edit/delete) | ❌ | No screen, no repository method for edit or delete of own listings |
-| Search | ✅ | `HomeScreen` search is client-side word-boundary prefix match on the loaded feed (`HomeViewModel`). `SearchResultsScreen`'s search bar does real **server-side** search via `ItemRepository.getFeedItems(searchQuery)` → Postgrest `ilike` against the real `item` table — no more hardcoded sample data. AI-powered search explicitly deferred |
-| Filters / sorting | 🔶 | `HomeScreen` category + price-bucket filters wired to `HomeViewModel` and filter the live feed. `SearchResultsScreen`'s `FilterBottomSheet` and sort control functional but filter client-side on server-fetched results; `size` has no backing DB column |
+| Listings (create) | ✅ | `AddProductScreen` + full photo upload; category/condition chips load real DB names — can no longer fail on name mismatch |
+| Listings (edit/delete) | ✅ | My Listings tab on `ProfileScreen`; in-place edit of name/description/price/condition/category; mark-as-sold and delete from `ItemDetailScreen` owner view and My Listings tab; `ItemRepository.updateItem()`/`deleteItem()` with app-level seller-ID ownership check |
+| Search | ✅ | `SearchResultsScreen` does real server-side search via `ItemRepository.getFeedItems(searchQuery)` → Postgrest `ilike`; `SearchResultsViewModel` calls on every keystroke; tapping a result opens `ItemDetailScreen`. `HomeScreen` search is client-side word-boundary prefix. AI-powered search explicitly deferred |
+| Filters / sorting | 🔶 | `HomeScreen` category + price-bucket filters wired to `HomeViewModel` and filter the live feed. `SearchResultsScreen` `FilterBottomSheet` and sort control functional but filter client-side on server-fetched results; `size` has no backing DB column |
 | Product detail view | ✅ | `ItemDetailScreen` with photo carousel, description, seller card |
 | Cart | ❌ | No multi-item cart concept; items are bought individually. `account_favorite` is used by Wishlist |
-| Wishlist | ✅ | `account_favorite`-backed via `ItemRepository.getFavoriteItemIds/getFavoriteItems/addFavorite/removeFavorite`; heart button on `GridProductCard` toggles persisted state; `WishlistScreen` reachable from `ProfileScreen` |
-| Buy flow | 🔶 | `confirmBuy()` inserts to `purchase` and marks item sold, but fees calculated client-side (spoofable); no payment gateway. Self-purchase/self-offer blocked: `ItemDetailScreen` hides Buy/Offer on viewer's own listings; `ItemDetailViewModel` rejects `sellerId == buyerId`/`creatorId` before any network call |
+| Wishlist | ✅ | `account_favorite`-backed; heart button on `GridProductCard` and `ItemDetailScreen` toggles persisted state; `WishlistScreen` reachable from `ProfileScreen`; RLS via migration 006 |
+| Buy flow | 🔶 | `confirmBuy()` inserts to `purchase` and marks item sold, but fees calculated client-side (spoofable); no payment gateway. Self-purchase/self-offer blocked app-side |
 | Payment integration | ❌ | No Stripe/payment SDK; purchase is a direct DB insert |
 | Order history | ✅ | `OrderHistoryScreen` + `OrderHistoryViewModel`; shows item name, fee breakdown, total, date |
 | Make offer | ✅ | `submitOffer()` inserts to `item_offer` |
@@ -156,7 +162,7 @@ Only features whose status changed since the 2026-06-18 audit:
 
 **Schema summary** (17 tables): `item_condition`, `status`, `rating`, `item_category`, `account`, `account_side_information`, `account_authentication`, `account_following`, `account_rating`, `item`, `item_photo`, `account_favorite`, `item_offer`, `purchase`, `dialogue`, `dialogue_message`, `dialogue_message_attachment`
 
-**CRITICAL — RLS still missing on 13 public tables.** Migration `003` added RLS to `dialogue` and `dialogue_message`. The following tables remain completely open: `account`, `item`, `item_photo`, `item_offer`, `purchase`, `item_category`, `item_condition`, `status`, `rating`, `account_following`, `account_rating`, `account_favorite`, `account_side_information`. Any authenticated user with the anon key can read and write every row in these tables.
+**CRITICAL — RLS still missing on 12 public tables.** Migration `003` added RLS to `dialogue` and `dialogue_message`; migration `006` added RLS to `account_favorite`. The following tables remain completely open: `account`, `item`, `item_photo`, `item_offer`, `purchase`, `item_category`, `item_condition`, `status`, `rating`, `account_following`, `account_rating`, `account_side_information`. Any authenticated user with the anon key can read and write every row in these tables.
 
 **Storage bucket issues (unchanged):**
 - `item-photos` bucket: `file_size_limit = NULL`, `allowed_mime_types = NULL` — no size cap, any file type accepted
@@ -193,9 +199,9 @@ Only features whose status changed since the 2026-06-18 audit:
 
 7. **`MessageNotificationController.kt:76-90`** — Two sequential Postgrest queries per incoming message. At scale, consider caching participant IDs at subscription open time.
 
-8. **`markAsSold()` / `updateItemToListed()` ownership (unchanged).** No RLS on `item` table; any authenticated user can mark any item sold.
+8. **`markAsSold()` / `updateItemToListed()` — app-level ownership guard added; DB-level still missing.** `ItemRepository` now checks seller ID before calling these; RLS on `item` table (Priority 1) will enforce at DB level.
 
-9. **`ItemDetailViewModel.kt` — `confirmBuy()` self-purchase now guarded.** `isOwnListing` check in `ItemDetailScreen` hides Buy/Offer buttons on the viewer's own listings; `confirmBuy()`/`submitOffer()` also reject `sellerId == buyerId`/`creatorId` before any network call.
+9. **`ItemDetailViewModel.kt` — `confirmBuy()` self-purchase now guarded.** `isOwnListing` check in `ItemDetailScreen` hides Buy/Offer on the viewer's own listings; `confirmBuy()`/`submitOffer()` also reject `sellerId == buyerId`/`creatorId` before any network call.
 
 ---
 
@@ -203,10 +209,11 @@ Only features whose status changed since the 2026-06-18 audit:
 
 | Finding | Severity | Status | Detail |
 |---|---|---|---|
-| No RLS on 13 public tables | CRITICAL | ❌ Open | `account`, `item`, `item_photo`, `item_offer`, `purchase` and 8 others readable/writable by any authenticated anon-key user |
+| No RLS on 12 public tables | CRITICAL | ❌ Open | `account`, `item`, `item_photo`, `item_offer`, `purchase` and 7 others readable/writable by any authenticated anon-key user |
 | RLS on `dialogue` + `dialogue_message` | HIGH | ✅ Resolved | Migration `003` — participant-scoped policies added |
+| RLS on `account_favorite` | MEDIUM | ✅ Resolved | Migration `006` — owner-scoped SELECT/INSERT/DELETE policies added |
 | Client-side fee calculation | HIGH | ❌ Open | `SHIPPING_FEE` and `BUYER_PROTECTION_FEE` constants in `ItemDetailViewModel.kt:38-39`; client sends fee values to DB |
-| `markAsSold()` no ownership check | HIGH | ❌ Open | `ItemRepository.kt` — no RLS or app-level guard; any user can mark any item sold |
+| `markAsSold()` no DB-level ownership check | HIGH | ❌ Open | App-level guard added; `item` table still has no RLS — any direct API call bypasses it |
 | `item-photos` upload path not restricted | HIGH | ❌ Open | Storage policy allows upload to any path; malicious user can overwrite other users' photos |
 | No file type/size limit on storage | MEDIUM | ❌ Open | Bucket accepts any file; denial-of-storage risk |
 | `SessionManager` in-memory only | MEDIUM | ✅ Resolved | `AccountPreferences` + `SplashViewModel` restore session on relaunch |
@@ -221,22 +228,22 @@ Only features whose status changed since the 2026-06-18 audit:
 
 ### Priority 1 — Blockers (cannot ship without)
 
-- [ ] **Enable RLS on remaining 13 public tables** — `account`, `item`, `item_photo`, `item_offer`, `purchase`, `item_category`, `item_condition`, `status`, `rating`, `account_following`, `account_rating`, `account_favorite`, `account_side_information` — add via new migration; minimum policies: authenticated SELECT on lookup tables, owner-scoped INSERT/UPDATE/DELETE on `item`/`item_photo`/`item_offer`/`purchase`
+- [ ] **Enable RLS on remaining 12 public tables** — `account`, `item`, `item_photo`, `item_offer`, `purchase`, `item_category`, `item_condition`, `status`, `rating`, `account_following`, `account_rating`, `account_side_information` — add via new migration; minimum policies: authenticated SELECT on lookup tables, owner-scoped INSERT/UPDATE/DELETE on `item`/`item_photo`/`item_offer`/`purchase`
 - [ ] **Move fee calculation server-side** — `ItemDetailViewModel.kt:38-39`, `PurchaseRepository.kt` — fees must be computed in a Supabase Edge Function or DB trigger; any client-supplied fee amount should be rejected
 - [ ] **Restrict storage upload path** — update `001_create_item_photos_bucket.sql` — `WITH CHECK` should enforce `(storage.foldername(name))[1] = auth.uid()::text`; same for `avatars/`
 
 ### Priority 2 — Core Incomplete Features
 
-- [ ] **Listing edit/delete** — add `updateItem()` and `deleteItem()` to `IItemRepository`; new `EditListingScreen` reachable from `ProfileScreen` owned listings tab — **M**
-- [x] **Wishlist/favorites** — `ItemRepository` favorite methods + heart button on `GridProductCard` wired to persisted state; `WishlistScreen` reachable from `ProfileScreen` — **M** ✅
+- [x] **Listing edit/delete** — My Listings tab on `ProfileScreen`; in-place edit from `ItemDetailScreen` owner view; `ItemRepository.updateItem()`/`deleteItem()` with app-level ownership check — **M** ✅
+- [x] **Wishlist/favorites** — `account_favorite`-backed; heart button on `GridProductCard` and `ItemDetailScreen` toggles persisted state; `WishlistScreen` reachable from `ProfileScreen`; RLS migration 006 — **M** ✅
 - [ ] **Follower follow/unfollow action** — `AccountRepository.follow/unfollow()`; wire button in `SellerPublicProfileScreen` (stat count already displayed) — **S**
-- [x] **Server-side search** — `IItemRepository.getFeedItems(searchQuery)` applies `ilike("item_name", "%query%")` in the Postgrest query; `SearchResultsViewModel` calls it on every keystroke — **L** ✅ (AI/pgvector semantic search deliberately not in scope, see Priority 4)
+- [x] **Server-side search** — `IItemRepository.getFeedItems(searchQuery)` applies `ilike("item_name", "%query%")` in Postgrest; `SearchResultsViewModel` calls on every keystroke; tapping result navigates to `ItemDetailScreen` — **L** ✅
 - [ ] **Push notifications (FCM)** — integrate `firebase-messaging`; store FCM token in `account_side_information` or new table; Edge Function to send on message/offer/sale events — **L**
 - [ ] **Notification settings sync** — write per-user preferences to Supabase rather than local SharedPreferences only; required for multi-device support — **S**
 
 ### Priority 3 — Quality & Security Fixes
 
-- [ ] **Guard against self-purchase (DB-level)** — app-level guard added; RLS policies (Priority 1) will add DB-level enforcement for `markAsSold()`/`updateItemToListed()` — **S**
+- [ ] **Guard against self-purchase (DB-level)** — app-level guard added; RLS policies (Priority 1) will enforce at DB level for `markAsSold()`/`updateItemToListed()` — **S**
 - [ ] **Delete dead files** — `data/ChatRepository.kt`, `data/SupabaseConfig.kt` — **S**
 - [ ] **Feed pagination** — `ItemRepository.getFeedItems()` — add `.range(offset, offset+PAGE_SIZE-1)` and cursor-based loading in `HomeViewModel` — **S**
 - [ ] **Storage file type + size limits** — update `001_create_item_photos_bucket.sql`; set `file_size_limit = 5242880` (5 MB), `allowed_mime_types = ['image/jpeg','image/png','image/webp']` — **S**
