@@ -1,6 +1,7 @@
 package com.example.vinted.data
 
 import com.example.vinted.data.dto.AccountEntity
+import com.example.vinted.data.dto.AccountFavoriteEntity
 import com.example.vinted.data.dto.ItemCategoryEntity
 import com.example.vinted.data.dto.ItemConditionEntity
 import com.example.vinted.data.dto.ItemEntity
@@ -38,6 +39,10 @@ interface IItemRepository {
     suspend fun insertItemPhoto(itemId: Int, photoUrl: String)
     suspend fun getOffersForSeller(sellerId: Int): List<OfferWithDetails>
     suspend fun updateOfferStatus(offerId: Int, statusId: Int)
+    suspend fun getFavoriteItemIds(accountId: Int): Set<Int>
+    suspend fun getFavoriteItems(accountId: Int): List<Product>
+    suspend fun addFavorite(accountId: Int, itemId: Int)
+    suspend fun removeFavorite(accountId: Int, itemId: Int)
 }
 
 @Serializable
@@ -185,6 +190,73 @@ class ItemRepository : IItemRepository {
     override suspend fun updateOfferStatus(offerId: Int, statusId: Int) {
         client.from("item_offer").update(mapOf("offer_status_id" to statusId)) {
             filter { eq("item_offer_id", offerId) }
+        }
+    }
+
+    override suspend fun getFavoriteItemIds(accountId: Int): Set<Int> {
+        return client.from("account_favorite")
+            .select { filter { eq("account_id", accountId) } }
+            .decodeList<AccountFavoriteEntity>()
+            .map { it.itemId }
+            .toSet()
+    }
+
+    override suspend fun getFavoriteItems(accountId: Int): List<Product> {
+        val favorites = client.from("account_favorite")
+            .select { filter { eq("account_id", accountId) } }
+            .decodeList<AccountFavoriteEntity>()
+
+        if (favorites.isEmpty()) return emptyList()
+
+        val itemIds = favorites.map { it.itemId }
+        val items = client.from("item")
+            .select { filter { isIn("item_id", itemIds) } }
+            .decodeList<ItemEntity>()
+
+        val sellerIds = items.map { it.sellerId }.distinct()
+        val sellerMap: Map<Int, AccountEntity> = if (sellerIds.isNotEmpty()) {
+            client.from("account")
+                .select { filter { isIn("account_id", sellerIds) } }
+                .decodeList<AccountEntity>()
+                .associateBy { it.accountId }
+        } else emptyMap()
+
+        return items.map { item ->
+            val seller = sellerMap[item.sellerId]
+            Product(
+                id = item.itemId.toString(),
+                name = item.name,
+                price = item.price.toFloat(),
+                originalPrice = if (item.discount != null && item.discount > 0) {
+                    val original = item.price / (1.0 - item.discount / 100.0)
+                    original.toFloat()
+                } else null,
+                discountPercent = item.discount,
+                size = null,
+                brand = null,
+                sellerInitial = seller?.accountName?.firstOrNull()?.uppercase() ?: "?",
+                sellerName = seller?.accountName ?: "unknown",
+                rating = 0f,
+                sellerId = item.sellerId,
+            )
+        }
+    }
+
+    override suspend fun addFavorite(accountId: Int, itemId: Int) {
+        client.from("account_favorite").insert(
+            buildJsonObject {
+                put("account_id", accountId)
+                put("item_id", itemId)
+            }
+        )
+    }
+
+    override suspend fun removeFavorite(accountId: Int, itemId: Int) {
+        client.from("account_favorite").delete {
+            filter {
+                eq("account_id", accountId)
+                eq("item_id", itemId)
+            }
         }
     }
 

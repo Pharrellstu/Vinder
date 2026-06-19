@@ -67,7 +67,6 @@ fun ItemDetailScreen(
     val detailState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    var isFavourite by remember { mutableStateOf(false) }
     var showOfferSheet by remember { mutableStateOf(false) }
     var showBuySheet by remember { mutableStateOf(false) }
 
@@ -84,11 +83,8 @@ fun ItemDetailScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             ItemDetailTopBar(
-                isFavourite = isFavourite,
-                onToggleFavourite = {
-                    isFavourite = !isFavourite
-                    notify(if (isFavourite) "Saved to favourites" else "Removed from favourites")
-                },
+                isFavourite = viewModel.isFavorited,
+                onToggleFavourite = { viewModel.toggleFavorite(::notify) },
                 onBack = onBack,
             )
         },
