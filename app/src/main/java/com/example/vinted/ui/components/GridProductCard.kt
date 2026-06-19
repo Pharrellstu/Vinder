@@ -6,7 +6,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -36,6 +38,8 @@ fun GridProductCard(
     product: Product,
     onClick: () -> Unit = {},
     modifier: Modifier = Modifier,
+    isFavorited: Boolean = false,
+    onToggleFavorite: () -> Unit = {},
 ) {
     Column(
         modifier = modifier
@@ -44,20 +48,24 @@ fun GridProductCard(
             .border(1.dp, Grey91, cardShape)
             .clickable(onClick = onClick),
     ) {
-        ProductImageSection(product = product)
+        ProductImageSection(product = product, isFavorited = isFavorited, onToggleFavorite = onToggleFavorite)
         ProductInfoSection(product = product)
     }
 }
 
 @Composable
-private fun ProductImageSection(product: Product) {
+private fun ProductImageSection(product: Product, isFavorited: Boolean, onToggleFavorite: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(215.dp)
             .background(Grey91),
     ) {
-        FavoriteButton(modifier = Modifier.align(Alignment.TopEnd).padding(6.dp))
+        FavoriteButton(
+            isFavorited = isFavorited,
+            onToggle = onToggleFavorite,
+            modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
+        )
         if (product.discountPercent != null) {
             DiscountBadge(
                 percent = product.discountPercent,
@@ -68,18 +76,19 @@ private fun ProductImageSection(product: Product) {
 }
 
 @Composable
-private fun FavoriteButton(modifier: Modifier) {
+private fun FavoriteButton(isFavorited: Boolean, onToggle: () -> Unit, modifier: Modifier) {
     Box(
         modifier = modifier
             .size(28.dp)
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.92f)),
+            .background(Color.White.copy(alpha = 0.92f))
+            .clickable(onClick = onToggle),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = Icons.Outlined.FavoriteBorder,
-            contentDescription = "Save item",
-            tint = Grey11,
+            imageVector = if (isFavorited) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+            contentDescription = if (isFavorited) "Remove from wishlist" else "Save to wishlist",
+            tint = if (isFavorited) Color.Red else Grey11,
             modifier = Modifier.size(14.dp),
         )
     }
