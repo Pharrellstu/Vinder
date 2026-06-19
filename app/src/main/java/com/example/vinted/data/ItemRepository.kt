@@ -21,7 +21,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 interface IItemRepository {
-    suspend fun getFeedItems(searchQuery: String? = null): List<Product>
+    suspend fun getFeedItems(searchQuery: String? = null, offset: Int = 0): List<Product>
     suspend fun getCategories(): List<String>
     suspend fun getCategoryNames(): List<String>
     suspend fun getConditionNames(): List<String>
@@ -77,6 +77,10 @@ private data class OfferInsert(
 )
 
 class ItemRepository : IItemRepository {
+
+    companion object {
+        const val PAGE_SIZE = 20
+    }
 
     private val client = SupabaseClientInitialiser.client
 
@@ -241,7 +245,7 @@ class ItemRepository : IItemRepository {
         }
     }
 
-    override suspend fun getFeedItems(searchQuery: String?): List<Product> {
+    override suspend fun getFeedItems(searchQuery: String?, offset: Int): List<Product> {
         val items = client.from("item")
             .select {
                 filter {
@@ -250,6 +254,7 @@ class ItemRepository : IItemRepository {
                         ilike("item_name", "%$searchQuery%")
                     }
                 }
+                range(offset.toLong(), (offset + PAGE_SIZE - 1).toLong())
             }
             .decodeList<ItemEntity>()
         val favoriteItemIds = getFavoriteItemIds(SessionManager.currentAccountId)
