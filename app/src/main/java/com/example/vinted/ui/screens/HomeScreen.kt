@@ -105,7 +105,17 @@ fun HomeScreen(
                             item { LatestFindsHeader(itemCount = state.gridItems.size) }
                             item { Spacer(modifier = Modifier.height(12.dp)) }
                             items(state.gridItems.chunked(2)) { row ->
-                                ProductGridRow(products = row, onProductClick = onProductClick)
+                                ProductGridRow(
+                                    products = row,
+                                    onProductClick = onProductClick,
+                                    favoritedIds = state.favoritedIds,
+                                    onToggleFavorite = { product ->
+                                        viewModel.toggleFavorite(
+                                            itemId = product.id.toInt(),
+                                            currentlyFavorited = product.id.toInt() in state.favoritedIds,
+                                        )
+                                    },
+                                )
                             }
                             item { Spacer(modifier = Modifier.height(24.dp)) }
                         }
@@ -255,7 +265,12 @@ private fun SaleProductsRow(products: List<Product>, onProductClick: (Product) -
 }
 
 @Composable
-private fun ProductGridRow(products: List<Product>, onProductClick: (Product) -> Unit) {
+private fun ProductGridRow(
+    products: List<Product>,
+    onProductClick: (Product) -> Unit,
+    favoritedIds: Set<Int> = emptySet(),
+    onToggleFavorite: (Product) -> Unit = {},
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -267,6 +282,8 @@ private fun ProductGridRow(products: List<Product>, onProductClick: (Product) ->
                 product = product,
                 onClick = { onProductClick(product) },
                 modifier = Modifier.weight(1f),
+                isFavorited = product.id.toIntOrNull() in favoritedIds,
+                onToggleFavorite = { onToggleFavorite(product) },
             )
         }
         if (products.size == 1) {
