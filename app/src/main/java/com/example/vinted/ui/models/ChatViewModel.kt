@@ -7,6 +7,7 @@ import com.example.vinted.data.IDialogueRepository
 import com.example.vinted.data.SessionManager
 import com.example.vinted.data.dto.DialogueMessageEntity
 import com.example.vinted.ui.initialisers.SupabaseClientInitialiser
+import com.example.vinted.util.ErrorMessages
 import io.github.jan.supabase.realtime.PostgresAction
 import io.github.jan.supabase.realtime.channel
 import io.github.jan.supabase.realtime.decodeRecord
@@ -55,7 +56,7 @@ class ChatViewModel(
             }.onSuccess { messages ->
                 _uiState.value = ChatUiState.Success(messages)
             }.onFailure {
-                _uiState.value = ChatUiState.Error(it.message ?: "Failed to load messages")
+                _uiState.value = ChatUiState.Error(ErrorMessages.friendlyMessage(it, "Failed to load messages"))
             }
         }
     }
@@ -97,7 +98,7 @@ class ChatViewModel(
             runCatching {
                 repository.sendMessage(dialogueId, senderId, text)
             }.onFailure {
-                _sendError.value = it.message ?: "Failed to send message"
+                _sendError.value = ErrorMessages.friendlyMessage(it, "Failed to send message")
             }
         }
     }
@@ -109,7 +110,7 @@ class ChatViewModel(
             runCatching {
                 repository.sendImageMessage(dialogueId, senderId, bytes, caption.trim())
             }.onFailure {
-                _sendError.value = it.message ?: "Failed to send image"
+                _sendError.value = ErrorMessages.friendlyMessage(it, "Failed to send image")
             }
         }
     }

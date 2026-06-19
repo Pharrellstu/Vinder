@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.vinted.data.AccountRepository
 import com.example.vinted.data.IAccountRepository
 import com.example.vinted.data.SessionManager
+import com.example.vinted.util.ErrorMessages
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -46,7 +47,7 @@ class ProfileViewModel(
                 val soldItems = repository.getSoldItems(id)
                 ProfileUiState.Success(profile, listings, soldItems)
             }.onSuccess { _uiState.value = it }
-             .onFailure { _uiState.value = ProfileUiState.Error(it.message ?: "Failed to load profile") }
+             .onFailure { _uiState.value = ProfileUiState.Error(ErrorMessages.friendlyMessage(it, "Failed to load profile")) }
         }
     }
 }

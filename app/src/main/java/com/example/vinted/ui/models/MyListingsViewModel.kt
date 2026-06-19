@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.vinted.data.IItemRepository
 import com.example.vinted.data.ItemRepository
 import com.example.vinted.data.SessionManager
+import com.example.vinted.util.ErrorMessages
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,7 +38,7 @@ class MyListingsViewModel(
             runCatching {
                 repository.getMyListings(SessionManager.currentAccountId)
             }.onSuccess { _uiState.value = MyListingsUiState.Success(it) }
-             .onFailure { _uiState.value = MyListingsUiState.Error(it.message ?: "Failed to load listings") }
+             .onFailure { _uiState.value = MyListingsUiState.Error(ErrorMessages.friendlyMessage(it, "Failed to load listings")) }
         }
     }
 
@@ -45,7 +46,7 @@ class MyListingsViewModel(
         viewModelScope.launch {
             runCatching { repository.markAsSold(itemId) }
                 .onSuccess { load() }
-                .onFailure { _actionError.value = it.message ?: "Couldn't mark this item as sold" }
+                .onFailure { _actionError.value = ErrorMessages.friendlyMessage(it, "Couldn't mark this item as sold") }
         }
     }
 

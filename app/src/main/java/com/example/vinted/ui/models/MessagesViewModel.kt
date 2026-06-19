@@ -6,6 +6,7 @@ import com.example.vinted.data.DialogueRepository
 import com.example.vinted.data.IDialogueRepository
 import com.example.vinted.data.InboxBadge
 import com.example.vinted.data.SessionManager
+import com.example.vinted.util.ErrorMessages
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,7 +42,7 @@ class MessagesViewModel(
             }.onSuccess { convos ->
                 _uiState.value = MessagesUiState.Success(convos)
                 InboxBadge.unread.value = convos.sumOf { it.unreadCount }
-            }.onFailure { _uiState.value = MessagesUiState.Error(it.message ?: "Failed to load messages") }
+            }.onFailure { _uiState.value = MessagesUiState.Error(ErrorMessages.friendlyMessage(it, "Failed to load messages")) }
         }
     }
 

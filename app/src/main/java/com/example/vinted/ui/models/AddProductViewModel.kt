@@ -8,6 +8,7 @@ import com.example.vinted.data.IItemRepository
 import com.example.vinted.data.ItemRepository
 import com.example.vinted.data.SessionManager
 import com.example.vinted.data.dto.ItemPhotoEntity
+import com.example.vinted.util.ErrorMessages
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -62,7 +63,7 @@ class AddProductViewModel(
         viewModelScope.launch {
             runCatching { repository.getItemForEdit(itemId) }
                 .onSuccess { _editData.value = it }
-                .onFailure { _uiState.value = AddProductUiState.Error(it.message ?: "Failed to load listing") }
+                .onFailure { _uiState.value = AddProductUiState.Error(ErrorMessages.friendlyMessage(it, "Failed to load listing")) }
         }
     }
 
@@ -76,7 +77,7 @@ class AddProductViewModel(
             }.onSuccess { _formOptions.value = it }
                 .onFailure {
                     _formOptions.value = AddProductFormOptions.Error(
-                        it.message ?: "Failed to load categories"
+                        ErrorMessages.friendlyMessage(it, "Failed to load categories")
                     )
                 }
         }
@@ -141,7 +142,7 @@ class AddProductViewModel(
             }.onSuccess { newItemId ->
                 _uiState.value = AddProductUiState.Submitted(newItemId)
             }.onFailure {
-                _uiState.value = AddProductUiState.Error(it.message ?: "Failed to post listing")
+                _uiState.value = AddProductUiState.Error(ErrorMessages.friendlyMessage(it, "Failed to post listing"))
             }
         }
     }
@@ -200,7 +201,7 @@ class AddProductViewModel(
             }.onSuccess {
                 _uiState.value = AddProductUiState.Submitted(it)
             }.onFailure {
-                _uiState.value = AddProductUiState.Error(it.message ?: "Failed to update listing")
+                _uiState.value = AddProductUiState.Error(ErrorMessages.friendlyMessage(it, "Failed to update listing"))
             }
         }
     }

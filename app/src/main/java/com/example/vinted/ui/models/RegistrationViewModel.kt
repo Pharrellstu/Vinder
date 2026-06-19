@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.vinted.auth.AuthRepository
 import com.example.vinted.auth.IAuthRepository
+import com.example.vinted.util.ErrorMessages
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -53,11 +54,11 @@ class RegistrationViewModel(
                             }
                             repository.register(nickname, email, password)
                                 .onSuccess { _uiState.value = RegistrationUiState.Success(email) }
-                                .onFailure { _uiState.value = RegistrationUiState.Error(it.message ?: "Unknown error") }
+                                .onFailure { _uiState.value = RegistrationUiState.Error(registrationError(it)) }
                         }
-                        .onFailure { _uiState.value = RegistrationUiState.Error(it.message ?: "Unknown error") }
+                        .onFailure { _uiState.value = RegistrationUiState.Error(registrationError(it)) }
                 }
-                .onFailure { _uiState.value = RegistrationUiState.Error(it.message ?: "Unknown error") }
+                .onFailure { _uiState.value = RegistrationUiState.Error(registrationError(it)) }
         }
     }
 
@@ -69,8 +70,12 @@ class RegistrationViewModel(
         return WEAK_PASSWORD_PREFIX + missingRequirements.joinToString(", ") + "."
     }
 
+    private fun registrationError(throwable: Throwable): String =
+        ErrorMessages.friendlyMessage(throwable, REGISTRATION_FAILED_MESSAGE)
+
     companion object {
         const val EMPTY_CREDENTIALS_MESSAGE = "All fields must not be empty"
+        const val REGISTRATION_FAILED_MESSAGE = "Couldn't create your account. Please try again."
         const val PASSWORD_MISMATCH_MESSAGE = "Passwords do not match"
         const val NICKNAME_TAKEN_MESSAGE = "This nickname is already taken"
         const val EMAIL_TAKEN_MESSAGE = "This email is already registered"
