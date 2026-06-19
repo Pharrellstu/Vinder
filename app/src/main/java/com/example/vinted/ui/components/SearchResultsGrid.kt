@@ -17,6 +17,7 @@ fun SearchResultsGrid(
     products: List<Product>,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+    onProductClick: (Product) -> Unit = {},
 ) {
     LazyColumn(
         modifier = modifier,
@@ -24,19 +25,23 @@ fun SearchResultsGrid(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         items(products.chunked(2)) { rowItems ->
-            ResultRow(rowItems = rowItems)
+            ResultRow(rowItems = rowItems, onProductClick = onProductClick)
         }
     }
 }
 
 @Composable
-private fun ResultRow(rowItems: List<Product>) {
+private fun ResultRow(rowItems: List<Product>, onProductClick: (Product) -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         rowItems.forEach { product ->
-            SearchResultCard(product = product, modifier = Modifier.weight(1f))
+            SearchResultCard(
+                product = product,
+                onClick = { onProductClick(product) },
+                modifier = Modifier.weight(1f),
+            )
         }
         if (rowItems.size == 1) {
             Spacer(modifier = Modifier.weight(1f))
