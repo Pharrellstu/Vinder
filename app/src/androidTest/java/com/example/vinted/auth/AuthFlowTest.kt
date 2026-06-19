@@ -93,8 +93,8 @@ class AuthFlowTest {
         composeRule.onNodeWithText("Log In").performClick()
         composeRule.waitForIdle()
 
-        // Assert — error text visible, success not triggered
-        composeRule.onNodeWithText("fake failure").assertIsDisplayed()
+        // Assert — friendly error shown (never the raw exception message), success not triggered
+        composeRule.onNodeWithText(LoginViewModel.LOGIN_FAILED_MESSAGE).assertIsDisplayed()
     }
 
     // ─── Register screen ───────────────────────────────────────────────────────

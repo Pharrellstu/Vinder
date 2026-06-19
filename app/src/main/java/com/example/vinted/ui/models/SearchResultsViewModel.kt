@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.vinted.data.IItemRepository
 import com.example.vinted.data.ItemRepository
+import com.example.vinted.util.ErrorMessages
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,7 +33,7 @@ class SearchResultsViewModel(
             runCatching {
                 repository.getFeedItems(query.ifBlank { null })
             }.onSuccess { _uiState.value = SearchResultsUiState.Success(it) }
-             .onFailure { _uiState.value = SearchResultsUiState.Error(it.message ?: "Search failed") }
+             .onFailure { _uiState.value = SearchResultsUiState.Error(ErrorMessages.friendlyMessage(it, "Search failed")) }
         }
     }
 }

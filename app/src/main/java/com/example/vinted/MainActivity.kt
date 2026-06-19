@@ -53,6 +53,7 @@ import com.example.vinted.ui.screens.SellerPublicProfileScreen
 import com.example.vinted.ui.screens.SettingsScreen
 import com.example.vinted.ui.screens.WishlistScreen
 import com.example.vinted.ui.theme.VintedTheme
+import com.example.vinted.util.ErrorMessages
 
 class MainActivity : ComponentActivity() {
     private val splashViewModel: SplashViewModel by viewModels()
@@ -346,7 +347,7 @@ private fun SellerChatScreen(sellerId: Int, itemId: Int?, onBack: () -> Unit) {
             .onSuccess { conversation = it }
             .onFailure {
                 Log.e("SellerChatScreen", "Failed to open chat with seller $sellerId", it)
-                error = it.message ?: "Couldn't open this chat."
+                error = ErrorMessages.friendlyMessage(it, "Couldn't open this chat.")
             }
     }
 

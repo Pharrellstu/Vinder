@@ -13,6 +13,7 @@ import com.example.vinted.data.IPurchaseRepository
 import com.example.vinted.data.ItemRepository
 import com.example.vinted.data.PurchaseRepository
 import com.example.vinted.data.SessionManager
+import com.example.vinted.util.ErrorMessages
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -68,7 +69,7 @@ class ItemDetailViewModel(
                 purchaseRepo.createPurchase(itemId, buyerId, sellerId, itemPrice, SHIPPING_FEE, BUYER_PROTECTION_FEE)
                 itemRepo.markAsSold(itemId)
             }.onSuccess { onSuccess() }
-             .onFailure { onError(it.message ?: "Purchase failed") }
+             .onFailure { onError(ErrorMessages.friendlyMessage(it, "Purchase failed")) }
         }
     }
 
@@ -85,7 +86,7 @@ class ItemDetailViewModel(
         viewModelScope.launch {
             runCatching { itemRepo.createOffer(itemId, creatorId, offerPrice) }
                 .onSuccess { onSuccess() }
-                .onFailure { onError(it.message ?: "Offer failed") }
+                .onFailure { onError(ErrorMessages.friendlyMessage(it, "Offer failed")) }
         }
     }
 
@@ -131,7 +132,7 @@ class ItemDetailViewModel(
                     seller = profile.toSeller(),
                 )
             }.onFailure {
-                _uiState.value = ItemDetailUiState.Error(it.message ?: "Failed to load item")
+                _uiState.value = ItemDetailUiState.Error(ErrorMessages.friendlyMessage(it, "Failed to load item"))
             }
         }
     }

@@ -10,6 +10,7 @@ import com.example.vinted.data.OFFER_STATUS_PENDING
 import com.example.vinted.data.OFFER_STATUS_REJECTED
 import com.example.vinted.data.PurchaseRepository
 import com.example.vinted.data.SessionManager
+import com.example.vinted.util.ErrorMessages
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -50,7 +51,7 @@ class OffersViewModel(
             runCatching {
                 itemRepo.getOffersForSeller(SessionManager.currentAccountId)
             }.onSuccess { _uiState.value = OffersUiState.Success(it) }
-             .onFailure { _uiState.value = OffersUiState.Error(it.message ?: "Failed to load offers") }
+             .onFailure { _uiState.value = OffersUiState.Error(ErrorMessages.friendlyMessage(it, "Failed to load offers")) }
         }
     }
 
@@ -72,7 +73,7 @@ class OffersViewModel(
             }.onSuccess {
                 onSuccess()
                 load()
-            }.onFailure { onError(it.message ?: "Failed to accept offer") }
+            }.onFailure { onError(ErrorMessages.friendlyMessage(it, "Failed to accept offer")) }
         }
     }
 
@@ -87,7 +88,7 @@ class OffersViewModel(
             }.onSuccess {
                 onSuccess()
                 load()
-            }.onFailure { onError(it.message ?: "Failed to reject offer") }
+            }.onFailure { onError(ErrorMessages.friendlyMessage(it, "Failed to reject offer")) }
         }
     }
 }

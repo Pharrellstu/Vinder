@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.vinted.auth.AuthRepository
 import com.example.vinted.auth.IAuthRepository
+import com.example.vinted.util.ErrorMessages
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,7 +33,9 @@ class LoginViewModel(
             _uiState.value = LoginUiState.Loading
             repository.login(email, password)
                 .onSuccess { _uiState.value = LoginUiState.Success }
-                .onFailure { _uiState.value = LoginUiState.Error(it.message ?: "Unknown error") }
+                .onFailure {
+                    _uiState.value = LoginUiState.Error(ErrorMessages.friendlyMessage(it, LOGIN_FAILED_MESSAGE))
+                }
         }
     }
 
@@ -42,6 +45,6 @@ class LoginViewModel(
 
     companion object {
         const val EMPTY_CREDENTIALS_MESSAGE = "Email and password must not be empty"
-        // const val GENERIC_ERROR_MESSAGE = "Incorrect email or password."
+        const val LOGIN_FAILED_MESSAGE = "Couldn't sign you in. Please try again."
     }
 }

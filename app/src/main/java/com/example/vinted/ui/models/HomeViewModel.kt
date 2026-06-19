@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.vinted.data.IItemRepository
 import com.example.vinted.data.ItemRepository
 import com.example.vinted.data.SessionManager
+import com.example.vinted.util.ErrorMessages
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -73,7 +74,7 @@ class HomeViewModel(
                 categories = repository.getCategories()
                 allItems = repository.getFeedItems()
             }.onSuccess { emitFilteredState() }
-             .onFailure { _uiState.value = HomeUiState.Error(it.message ?: "Failed to load feed") }
+             .onFailure { _uiState.value = HomeUiState.Error(ErrorMessages.friendlyMessage(it, "Failed to load feed")) }
         }
     }
 

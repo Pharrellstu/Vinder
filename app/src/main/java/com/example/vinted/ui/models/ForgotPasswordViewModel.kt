@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.vinted.auth.AuthRepository
 import com.example.vinted.auth.IAuthRepository
+import com.example.vinted.util.ErrorMessages
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,8 +40,8 @@ class ForgotPasswordViewModel(
                         it.copy(phase = ForgotPasswordState.Phase.OTP, email = email, isLoading = false)
                     }
                 }
-                .onFailure {
-                    _state.update { it.copy(isLoading = false, error = ERR_SEND_OTP) }
+                .onFailure { e ->
+                    _state.update { it.copy(isLoading = false, error = ErrorMessages.friendlyMessage(e, ERR_SEND_OTP)) }
                 }
         }
     }
@@ -57,8 +58,8 @@ class ForgotPasswordViewModel(
                 .onSuccess {
                     _state.update { it.copy(phase = ForgotPasswordState.Phase.NEW_PASSWORD, isLoading = false) }
                 }
-                .onFailure {
-                    _state.update { it.copy(isLoading = false, error = ERR_VERIFY_OTP) }
+                .onFailure { e ->
+                    _state.update { it.copy(isLoading = false, error = ErrorMessages.friendlyMessage(e, ERR_VERIFY_OTP)) }
                 }
         }
     }
@@ -78,8 +79,8 @@ class ForgotPasswordViewModel(
                 .onSuccess {
                     _state.update { it.copy(phase = ForgotPasswordState.Phase.SUCCESS, isLoading = false) }
                 }
-                .onFailure {
-                    _state.update { it.copy(isLoading = false, error = ERR_UPDATE_PASSWORD) }
+                .onFailure { e ->
+                    _state.update { it.copy(isLoading = false, error = ErrorMessages.friendlyMessage(e, ERR_UPDATE_PASSWORD)) }
                 }
         }
     }

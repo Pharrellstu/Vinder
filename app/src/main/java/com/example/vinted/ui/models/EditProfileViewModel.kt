@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.vinted.data.AccountRepository
 import com.example.vinted.data.IAccountRepository
 import com.example.vinted.data.SessionManager
+import com.example.vinted.util.ErrorMessages
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -64,7 +65,7 @@ class EditProfileViewModel(
                     avatarUrl = profile.avatarUrl,
                 )
             }.onFailure {
-                _uiState.value = EditProfileUiState.Error(it.message ?: "Failed to load profile")
+                _uiState.value = EditProfileUiState.Error(ErrorMessages.friendlyMessage(it, "Failed to load profile"))
             }
         }
     }
@@ -106,7 +107,7 @@ class EditProfileViewModel(
             }.onFailure {
                 _uiState.value = current.copy(
                     isSaving = false,
-                    errorMessage = it.message ?: "Failed to save changes",
+                    errorMessage = ErrorMessages.friendlyMessage(it, "Failed to save changes"),
                 )
             }
         }
@@ -131,7 +132,7 @@ class EditProfileViewModel(
                 (_uiState.value as? EditProfileUiState.Editing)?.let {
                     _uiState.value = it.copy(
                         isUploadingPhoto = false,
-                        errorMessage = err.message ?: "Failed to upload photo",
+                        errorMessage = ErrorMessages.friendlyMessage(err, "Failed to upload photo"),
                     )
                 }
             }

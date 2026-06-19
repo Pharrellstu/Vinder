@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.vinted.data.IItemRepository
 import com.example.vinted.data.ItemRepository
 import com.example.vinted.data.SessionManager
+import com.example.vinted.util.ErrorMessages
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,7 +38,7 @@ class WishlistViewModel(
         viewModelScope.launch {
             runCatching { repository.getFavoriteItems(accountId) }
                 .onSuccess { _uiState.value = WishlistUiState.Success(it) }
-                .onFailure { _uiState.value = WishlistUiState.Error(it.message ?: "Failed to load wishlist") }
+                .onFailure { _uiState.value = WishlistUiState.Error(ErrorMessages.friendlyMessage(it, "Failed to load wishlist")) }
         }
     }
 

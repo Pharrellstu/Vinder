@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.vinted.data.IPurchaseRepository
 import com.example.vinted.data.PurchaseRepository
 import com.example.vinted.data.SessionManager
+import com.example.vinted.util.ErrorMessages
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -44,7 +45,7 @@ class OrderHistoryViewModel(
             runCatching {
                 purchaseRepo.getMyPurchases(SessionManager.currentAccountId)
             }.onSuccess { _uiState.value = OrderHistoryUiState.Success(it) }
-             .onFailure { _uiState.value = OrderHistoryUiState.Error(it.message ?: "Failed to load orders") }
+             .onFailure { _uiState.value = OrderHistoryUiState.Error(ErrorMessages.friendlyMessage(it, "Failed to load orders")) }
         }
     }
 }
