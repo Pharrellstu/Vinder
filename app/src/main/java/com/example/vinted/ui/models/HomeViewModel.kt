@@ -55,7 +55,10 @@ class HomeViewModel(
     private val _uiState = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-    // Unfiltered feed kept in memory so re-filtering never triggers a network refetch.
+    private val _isLoadingMore = MutableStateFlow(false)
+    val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
+
+    // Unfiltered feed kept in memory; accumulates pages across loadMore() calls.
     private var allItems: List<Product> = emptyList()
     private var categories: List<String> = emptyList()
 
@@ -63,34 +66,58 @@ class HomeViewModel(
     private var searchQuery: String = ""
     private var selectedPriceBucket: PriceBucket = PriceBucket.ANY
 
+    private var feedOffset = 0
+    private var hasMore = true
+
     init {
         load()
     }
 
     fun load() {
+        feedOffset = 0
+        hasMore = true
+        allItems = emptyList()
         viewModelScope.launch {
             _uiState.value = HomeUiState.Loading
             runCatching {
                 categories = repository.getCategories()
-                allItems = repository.getFeedItems()
+                val page = repository.getFeedItems(offset = 0)
+                allItems = page
+                if (page.size < ItemRepository.PAGE_SIZE) hasMore = false
+                feedOffset = page.size
             }.onSuccess { emitFilteredState() }
              .onFailure { _uiState.value = HomeUiState.Error(ErrorMessages.friendlyMessage(it, "Failed to load feed")) }
         }
     }
 
+    fun loadMore() {
+        if (!hasMore || _isLoadingMore.value) return
+        viewModelScope.launch {
+            _isLoadingMore.value = true
+            runCatching {
+                val page = repository.getFeedItems(offset = feedOffset)
+                allItems = allItems + page
+                if (page.size < ItemRepository.PAGE_SIZE) hasMore = false
+                feedOffset += page.size
+            }.onSuccess { emitFilteredState() }
+             .onFailure { /* silently ignore — user can scroll again */ }
+            _isLoadingMore.value = false
+        }
+    }
+
     fun onCategorySelected(category: String) {
         selectedCategory = category
-        emitFilteredState()
+        load()
     }
 
     fun onSearchQueryChanged(query: String) {
         searchQuery = query
-        emitFilteredState()
+        load()
     }
 
     fun onPriceBucketSelected(bucket: PriceBucket) {
         selectedPriceBucket = bucket
-        emitFilteredState()
+        load()
     }
 
     fun onToggleFavorite(product: Product) {

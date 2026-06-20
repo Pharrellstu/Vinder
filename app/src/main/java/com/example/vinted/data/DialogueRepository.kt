@@ -157,24 +157,17 @@ class DialogueRepository : IDialogueRepository {
         otherAccountId: Int,
         itemId: Int?,
     ): Conversation {
-        // A dialogue exists in either direction between the two participants.
-        val asCreator = client.from("dialogue")
+        // Normalise to canonical (min, max) pair so the query always matches the DB index.
+        val creatorId = minOf(accountId, otherAccountId)
+        val receiverId = maxOf(accountId, otherAccountId)
+        val existing = client.from("dialogue")
             .select {
                 filter {
-                    eq("dialogue_creator_id", accountId)
-                    eq("dialogue_receiver_id", otherAccountId)
+                    eq("dialogue_creator_id", creatorId)
+                    eq("dialogue_receiver_id", receiverId)
                 }
             }
             .decodeList<DialogueEntity>()
-        val asReceiver = client.from("dialogue")
-            .select {
-                filter {
-                    eq("dialogue_creator_id", otherAccountId)
-                    eq("dialogue_receiver_id", accountId)
-                }
-            }
-            .decodeList<DialogueEntity>()
-        val existing = asCreator + asReceiver
 
         // Prefer a thread already tied to this item; otherwise reuse any existing
         // thread between the two users, and only create a new one if none exists.
@@ -184,8 +177,8 @@ class DialogueRepository : IDialogueRepository {
             // absent from the deployed `dialogue` schema, so naming it here is rejected.
             ?: client.from("dialogue").insert(
                 buildJsonObject {
-                    put("dialogue_creator_id", accountId)
-                    put("dialogue_receiver_id", otherAccountId)
+                    put("dialogue_creator_id", creatorId)
+                    put("dialogue_receiver_id", receiverId)
                 }
             ) { select() }.decodeSingle<DialogueEntity>()
 

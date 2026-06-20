@@ -27,7 +27,6 @@ import com.example.vinted.ui.models.SplashState
 import com.example.vinted.ui.models.SplashViewModel
 import com.example.vinted.data.DialogueRepository
 import com.example.vinted.data.InboxBadge
-import com.example.vinted.data.NotificationPreferences
 import com.example.vinted.data.SessionManager
 import com.example.vinted.notifications.MessageNotificationController
 import com.example.vinted.notifications.VinderNotifications
@@ -62,7 +61,6 @@ class MainActivity : ComponentActivity() {
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
 
-        NotificationPreferences.init(this)
         VinderNotifications.createChannels(this)
 
         // Notifications simply stay off if the user declines; no further action needed.

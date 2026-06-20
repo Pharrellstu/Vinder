@@ -62,6 +62,7 @@ fun SellerPublicProfileScreen(
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     val uiState by viewModel.uiState.collectAsState()
+    val isFollowing by viewModel.isFollowing.collectAsState()
 
     Scaffold(
         containerColor = Grey97,
@@ -120,7 +121,14 @@ fun SellerPublicProfileScreen(
                             followers = state.profile.followerCount,
                         )
                     }
-                    item { SellerActionButtons(onMessage = onMessageSeller) }
+                    item {
+                        SellerActionButtons(
+                            isFollowing = isFollowing,
+                            onFollow = { viewModel.onFollow() },
+                            onUnfollow = { viewModel.onUnfollow() },
+                            onMessage = onMessageSeller,
+                        )
+                    }
                     item {
                         ProfileTabRow(
                             tabs = sellerProfileTabs,
@@ -223,9 +231,12 @@ private fun SellerAvatar(initial: String, color: Color, avatarUrl: String? = nul
 }
 
 @Composable
-private fun SellerActionButtons(onMessage: () -> Unit) {
-    // Follow is a local visual toggle for now; persistence is a future ticket.
-    var following by remember { mutableStateOf(false) }
+private fun SellerActionButtons(
+    isFollowing: Boolean,
+    onFollow: () -> Unit,
+    onUnfollow: () -> Unit,
+    onMessage: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -234,11 +245,11 @@ private fun SellerActionButtons(onMessage: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         ActionPill(
-            label = if (following) "Following" else "Follow",
-            bgColor = if (following) Color.White else VinderAzure,
-            textColor = if (following) Grey11 else Color.White,
-            borderColor = if (following) Grey91 else Color.Transparent,
-            onClick = { following = !following },
+            label = if (isFollowing) "Following" else "Follow",
+            bgColor = if (isFollowing) Color.White else VinderAzure,
+            textColor = if (isFollowing) Grey11 else Color.White,
+            borderColor = if (isFollowing) Grey91 else Color.Transparent,
+            onClick = if (isFollowing) onUnfollow else onFollow,
             modifier = Modifier.weight(1f),
         )
         ActionPill(

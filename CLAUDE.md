@@ -22,24 +22,27 @@ The application contains an Ai-powered search system, which help users to find d
 - **Font**: Instrument Serif for Logo, Inter for body text, Public Sans for headings
 - **Logo**: A stylized "Vinder" in italic
 
-## Supabase Setup (Self-Hosted)
+## Figma design
+You can access the figma design with the mcp
+https://www.figma.com/design/ZKz1RyWWmsyLc6aMUrfEaq/Untitled?node-id=78-88&t=2QbsQXw4YUgogl7X-1
 
-Supabase runs locally via Docker Compose in `../vinder-AppDev/` (one level above this repo).
-Kong gateway is exposed at **`http://localhost:8000`** on the host machine.
+## Supabase Setup (Cloud)
 
-### Android emulator networking
-The emulator's `localhost` is the emulator itself, not the host.
-Always use **`10.0.2.2`** as the Supabase URL in `local.properties`:
+Supabase project is hosted online at **`https://ismxghgozvuonkgloguk.supabase.co`**.
+Use the Supabase cloud MCP or dashboard to access the project.
+
+### App connection
+Both physical devices and the Android emulator reach the cloud URL directly over HTTPS — no special networking alias needed.
+`local.properties` holds the real credentials:
 ```
-supabase.url=http://10.0.2.2:8000
-supabase.anon.key=<your-anon-key>
+supabase.url=https://ismxghgozvuonkgloguk.supabase.co
+supabase.anon.key=<anon key — see local.properties, never commit>
 ```
-Never set `supabase.url=http://localhost:8000` — it will fail with `ConnectException`.
 
 ### Secrets
 - `local.properties` is git-ignored and holds real secrets (`sdk.dir`, `supabase.url`, `supabase.anon.key`).
 - `local.properties.example` is committed as a safe placeholder — copy it to `local.properties` and fill in real values.
-- Anon key comes from `../vinder-AppDev/.env` → `ANON_KEY`.
+- Anon key comes from Supabase Project Settings → API.
 - No secrets are hardcoded in any committed file.
 
 ### BuildConfig injection
@@ -69,26 +72,10 @@ Auth operations go through `IAuthRepository` / `AuthRepository` — never call t
 | `bob@vinder.dev` | `Bob123!` |
 | `carol@vinder.dev` | `Carol123!` |
 
-Requires `pgcrypto` extension. Run against the `supabase-db` container as `supabase_admin`.
-
-### Service-role password mismatch (runbook)
-If `supabase-auth`, `supabase-rest`, or `supabase-storage` crash-loop with:
-```
-password authentication failed for user "supabase_auth_admin"
-```
-The Docker volume was initialized with an old `POSTGRES_PASSWORD`. Fix with `database/fix_supabase_admin.sql`:
-```powershell
-# PowerShell
-$pw = (Select-String 'POSTGRES_PASSWORD' ../vinder-AppDev/.env).Line.Split('=')[1].Trim()
-docker exec supabase-db psql -U supabase_admin -h 127.0.0.1 -d postgres `
-  -v postgres_password="$pw" `
-  -f database/fix_supabase_admin.sql
-```
-This resets all 4 service-role passwords to match the current `.env` value.
-
 ### Network security
-`res/xml/network_security_config.xml` allows cleartext HTTP only to `localhost` and `10.0.2.2`.
-All other traffic requires HTTPS. `AndroidManifest.xml` references this config and declares `INTERNET` permission.
+All Supabase traffic is HTTPS to the cloud endpoint — no cleartext exceptions needed.
+`res/xml/network_security_config.xml` retains the `localhost`/`10.0.2.2` cleartext entries for local dev if needed.
+`AndroidManifest.xml` references this config and declares `INTERNET` permission.
 
 ## Coding Conventions
 This project follows strict naming and formatting rules — see README.md for the full reference with examples.
@@ -100,3 +87,17 @@ Summary:
 - Functions: `lowerCamelCase`
 - Brackets: Egyptian / K&R style (opening brace on same line)
 - Unit tests: Arrange / Act / Assert structure
+
+## Skills
+Before responding to any prompt, use /find-skills skill to search for skills related to the prompt
+Before writing any code use /clean-code skill
+If a prompt has tasks related to supabase or backend, use supabase skills
+
+## Rules
+Never read /supabase or /supabase-project folder
+
+## AUDIT.md Maintenance
+When completing any task listed in AUDIT.md, immediately update AUDIT.md:
+- Feature matrix: flip status (❌/🔶 → ✅)
+- Implementation plan: check off the completed item (`[ ]` → `[x]`)
+- Add evidence (file:line or migration name) in the Notes column

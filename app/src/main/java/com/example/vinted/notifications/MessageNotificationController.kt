@@ -38,6 +38,7 @@ object MessageNotificationController {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var job: Job? = null
+    private val senderNameCache = mutableMapOf<Int, String>()
 
     fun start(context: Context) {
         if (job?.isActive == true) return
@@ -81,13 +82,15 @@ object MessageNotificationController {
         }.getOrNull() ?: return
         if (dialogue.creatorId != me && dialogue.receiverId != me) return
 
-        val senderName = runCatching {
-            client.from("account")
-                .select { filter { eq("account_id", message.senderId) } }
-                .decodeList<AccountEntity>()
-                .firstOrNull()
-                ?.accountName
-        }.getOrNull() ?: "New message"
+        val senderName = senderNameCache.getOrPut(message.senderId) {
+            runCatching {
+                client.from("account")
+                    .select { filter { eq("account_id", message.senderId) } }
+                    .decodeList<AccountEntity>()
+                    .firstOrNull()
+                    ?.accountName
+            }.getOrNull() ?: "New message"
+        }
 
         VinderNotifications.notify(
             context = context,
@@ -99,6 +102,7 @@ object MessageNotificationController {
     }
 
     fun stop() {
+        senderNameCache.clear()
         job?.cancel()
         job = null
     }

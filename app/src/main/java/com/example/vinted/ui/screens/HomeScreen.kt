@@ -93,8 +93,19 @@ fun HomeScreen(
             is HomeUiState.Success -> {
                 val listState = rememberLazyListState()
                 val scope = rememberCoroutineScope()
+                val isLoadingMore by viewModel.isLoadingMore.collectAsState()
                 val showBackToTop by remember {
                     derivedStateOf { listState.firstVisibleItemIndex > 3 }
+                }
+                val shouldLoadMore by remember {
+                    derivedStateOf {
+                        val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                        val total = listState.layoutInfo.totalItemsCount
+                        total > 0 && lastVisible >= total - 3
+                    }
+                }
+                LaunchedEffect(shouldLoadMore) {
+                    if (shouldLoadMore) viewModel.loadMore()
                 }
                 Box(modifier = Modifier.fillMaxSize().padding(padding)) {
                     Column(modifier = Modifier.fillMaxSize()) {
@@ -130,6 +141,21 @@ fun HomeScreen(
                                     onProductClick = onProductClick,
                                     onToggleFavorite = viewModel::onToggleFavorite,
                                 )
+                            }
+                            if (isLoadingMore) {
+                                item {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(24.dp),
+                                            color = VinderAzure,
+                                        )
+                                    }
+                                }
                             }
                             item { Spacer(modifier = Modifier.height(24.dp)) }
                         }
