@@ -25,8 +25,10 @@ import kotlinx.coroutines.launch
  * Subscribes to Supabase Realtime inserts on `dialogue_message` while the user is signed in
  * and posts a local notification for each incoming message addressed to them.
  *
- * This is the in-app/foreground delivery path. True push delivery (app killed) would require
- * a push backend such as FCM, which this self-hosted Supabase setup does not provide.
+ * This is hosted by [MessageListenerService], a foreground service that keeps the app process
+ * (and therefore this Realtime socket) alive while the app is backgrounded or the screen is
+ * locked. It does not survive the app being swiped away from recents or long Doze periods —
+ * true app-killed push would require a backend such as FCM, which this setup does not provide.
  *
  * Note: the `dialogue_message` table must be part of the `supabase_realtime` publication on
  * the server for inserts to be streamed.

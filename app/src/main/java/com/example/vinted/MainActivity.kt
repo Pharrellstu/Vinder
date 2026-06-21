@@ -28,7 +28,7 @@ import com.example.vinted.ui.models.SplashViewModel
 import com.example.vinted.data.DialogueRepository
 import com.example.vinted.data.InboxBadge
 import com.example.vinted.data.SessionManager
-import com.example.vinted.notifications.MessageNotificationController
+import com.example.vinted.notifications.MessageListenerService
 import com.example.vinted.notifications.VinderNotifications
 import com.example.vinted.ui.models.Conversation
 import com.example.vinted.ui.models.Product
@@ -129,10 +129,10 @@ fun VinderApp(
         AuthScreen.HOME -> {
             LaunchedEffect(Unit) {
                 onRequestNotificationPermission()
-                MessageNotificationController.start(context)
+                MessageListenerService.start(context)
             }
             MainTabs(onLoggedOut = {
-                MessageNotificationController.stop()
+                MessageListenerService.stop(context)
                 authScreen = AuthScreen.LOGIN
             })
         }
