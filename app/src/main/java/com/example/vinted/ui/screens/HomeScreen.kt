@@ -203,7 +203,7 @@ private fun VinderTopBar(onSearchToggle: () -> Unit) {
             Text(
                 text = "Vinder",
                 color = VinderAzure,
-                fontSize = 22.sp,
+                fontSize = 26.sp,
                 fontFamily = instrumentSerifNormal,
                 fontStyle = FontStyle.Italic,
             )
