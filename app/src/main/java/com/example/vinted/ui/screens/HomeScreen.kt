@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Notifications
@@ -230,6 +231,7 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
         leadingIcon = {
             Icon(Icons.Outlined.Search, contentDescription = null, tint = Grey57)
         },
+        shape = RoundedCornerShape(percent = 50),
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = VinderAzure,
             focusedLeadingIconColor = VinderAzure,

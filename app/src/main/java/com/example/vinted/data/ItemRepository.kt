@@ -178,9 +178,13 @@ class ItemRepository : IItemRepository {
     }
 
     override suspend fun getItemPhotos(itemId: Int): List<String> {
+        // Sort by item_photo_id so the gallery order matches upload order (the create
+        // flow uploads photo_0 first), keeping the cover photo at index 0. Postgrest
+        // does not guarantee row order without an explicit sort.
         return client.from("item_photo")
             .select { filter { eq("item_id", itemId) } }
             .decodeList<ItemPhotoEntity>()
+            .sortedBy { it.itemPhotoId }
             .map { it.photoUrl }
     }
 
