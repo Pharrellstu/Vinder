@@ -44,11 +44,11 @@ import com.example.vinted.ui.models.RegistrationUiState
 import com.example.vinted.ui.models.RegistrationViewModel
 import com.example.vinted.ui.theme.boxDivColor
 import com.example.vinted.ui.theme.grayColor
-import com.example.vinted.ui.theme.headingColor
 import com.example.vinted.ui.theme.inputColor
 import com.example.vinted.ui.theme.instrumentSerifNormal
 import com.example.vinted.ui.theme.inter
 import com.example.vinted.ui.theme.roundedInputShape
+import com.example.vinted.ui.theme.VinderAzure
 
 private const val PASSWORD_MASK = '•'
 private val CARD_BORDER_COLOR = Color.Black.copy(alpha = 0.1f)
@@ -108,7 +108,7 @@ private fun RegisterContent(
                 fontSize = 56.sp,
                 fontFamily = instrumentSerifNormal,
                 fontStyle = FontStyle.Italic,
-                color = headingColor,
+                color = VinderAzure,
                 style = TextStyle(
                     platformStyle = PlatformTextStyle(includeFontPadding = false)
                 ),
@@ -126,7 +126,7 @@ private fun RegisterContent(
                     fontSize = 20.sp,
                     fontFamily = inter,
                     fontStyle = FontStyle.Italic,
-                    color = headingColor
+                    color = VinderAzure
                 )
 
                 InputField(
@@ -171,7 +171,7 @@ private fun RegisterContent(
                         )
                     },
                     enabled = uiState !is RegistrationUiState.Loading,
-                    colors = ButtonDefaults.buttonColors(containerColor = headingColor),
+                    colors = ButtonDefaults.buttonColors(containerColor = VinderAzure),
                     modifier = Modifier
                         .padding(top = 18.dp)
                         .width(170.dp)
@@ -182,7 +182,7 @@ private fun RegisterContent(
 
                 if (uiState is RegistrationUiState.Loading) {
                     CircularProgressIndicator(
-                        color = headingColor,
+                        color = VinderAzure,
                         modifier = Modifier
                             .padding(top = 16.dp)
                             .size(24.dp)
@@ -207,7 +207,7 @@ private fun RegisterContent(
                     Text(
                         text = "Log In",
                         fontSize = 16.sp,
-                        color = headingColor,
+                        color = VinderAzure,
                         modifier = Modifier.clickable { onNavigateToLogin() }
                     )
                 }
@@ -226,7 +226,7 @@ private fun RegistrationSuccessContent(
         text = "Check your email!",
         fontSize = 20.sp,
         fontFamily = inter,
-        color = headingColor,
+        color = VinderAzure,
         textAlign = TextAlign.Center
     )
 
@@ -240,7 +240,7 @@ private fun RegistrationSuccessContent(
 
     Button(
         onClick = onNavigateToLogin,
-        colors = ButtonDefaults.buttonColors(containerColor = headingColor),
+        colors = ButtonDefaults.buttonColors(containerColor = VinderAzure),
         modifier = Modifier
             .padding(top = 28.dp)
             .width(170.dp)

@@ -377,7 +377,7 @@ private fun ActionButton(
             .padding(vertical = 13.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = textColor)
+        Text(label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = textColor)
     }
 }
 
