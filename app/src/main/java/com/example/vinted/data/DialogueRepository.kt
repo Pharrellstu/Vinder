@@ -11,7 +11,9 @@ import com.example.vinted.data.dto.ItemPhotoEntity
 import com.example.vinted.ui.initialisers.SupabaseClientInitialiser
 import com.example.vinted.ui.models.ChatMessage
 import com.example.vinted.ui.models.Conversation
+import com.example.vinted.util.TimeFormat
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.query.Order
 import io.github.jan.supabase.storage.storage
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -64,6 +66,35 @@ class DialogueRepository : IDialogueRepository {
             .mapValues { (_, attachments) -> attachments.first().attachmentLink }
     }
 
+    // Fetches a dialogue's messages in chronological order. Ordering by timestamp (then by the
+    // serial id as a tiebreaker for identical stamps) keeps the conversation in send order.
+    private suspend fun fetchMessages(dialogueId: Int): List<DialogueMessageEntity> =
+        client.from("dialogue_message")
+            .select {
+                filter { eq("dialogue_id", dialogueId) }
+                order("timestamp", Order.ASCENDING)
+                order("dialogue_message_id", Order.ASCENDING)
+            }
+            .decodeList<DialogueMessageEntity>()
+
+    // Maps message rows to UI models, resolving attachments in one bulk query and rendering each
+    // timestamp as a local-time label. `accountId` is the viewer, used to flag own messages.
+    private suspend fun toChatMessages(
+        msgDtos: List<DialogueMessageEntity>,
+        accountId: Int,
+    ): List<ChatMessage> {
+        val attachmentMap = attachmentUrlsFor(msgDtos.map { it.messageId })
+        return msgDtos.map { msg ->
+            ChatMessage(
+                id = msg.messageId.toString(),
+                text = msg.text,
+                isFromMe = msg.senderId == accountId,
+                time = TimeFormat.toLocalTimeLabel(msg.timestamp),
+                attachmentUrl = attachmentMap[msg.messageId],
+            )
+        }
+    }
+
     override suspend fun getConversations(accountId: Int): List<Conversation> {
         val asCreator = client.from("dialogue")
             .select { filter { eq("dialogue_creator_id", accountId) } }
@@ -110,26 +141,19 @@ class DialogueRepository : IDialogueRepository {
                 .mapValues { (_, photos) -> photos.first().photoUrl }
         } else emptyMap()
 
-        return allDialogues.mapIndexed { index, dialogue ->
+        // Pair each conversation with its last-activity instant so the list can be ordered with the
+        // most recently active thread first. Avatar colour is keyed off the other account id (not a
+        // list position) so it stays stable as threads reorder.
+        return allDialogues.map { dialogue ->
             val otherAccountId = if (dialogue.creatorId == accountId)
                 dialogue.receiverId else dialogue.creatorId
 
             val otherAccount = accountMap[otherAccountId]
             val item = dialogue.itemId?.let { itemMap[it] }
 
-            val msgDtos = client.from("dialogue_message")
-                .select { filter { eq("dialogue_id", dialogue.dialogueId) } }
-                .decodeList<DialogueMessageEntity>()
-            val attachmentMap = attachmentUrlsFor(msgDtos.map { it.messageId })
-            val messages = msgDtos.map { msg ->
-                ChatMessage(
-                    id = msg.messageId.toString(),
-                    text = msg.text,
-                    isFromMe = msg.senderId == accountId,
-                    time = msg.timestamp.take(16).replace("T", " "),
-                    attachmentUrl = attachmentMap[msg.messageId],
-                )
-            }
+            val msgDtos = fetchMessages(dialogue.dialogueId)
+            val messages = toChatMessages(msgDtos, accountId)
+            val lastActivity = msgDtos.lastOrNull()?.let { TimeFormat.toEpochMillis(it.timestamp) } ?: 0L
 
             // Unread = incoming messages not yet marked read in the DB.
             val unreadCount = msgDtos.count { it.senderId != accountId && !it.isRead }
@@ -140,16 +164,18 @@ class DialogueRepository : IDialogueRepository {
                 dialogueId = dialogue.dialogueId,
                 handle = otherName,
                 initial = otherName.firstOrNull()?.uppercase() ?: "?",
-                avatarColor = avatarColors[index % avatarColors.size],
+                avatarColor = avatarColors[otherAccountId % avatarColors.size],
                 lastMessage = messages.lastOrNull()?.text ?: "",
-                timeLabel = messages.lastOrNull()?.time?.takeLast(5) ?: "",
+                timeLabel = messages.lastOrNull()?.time ?: "",
                 unreadCount = unreadCount,
                 itemTitle = item?.name ?: otherName,
                 fromLocation = locationMap[otherAccountId].orEmpty(),
                 coverImageUrl = dialogue.itemId?.let { coverMap[it] },
                 messages = messages,
-            )
+            ) to lastActivity
         }
+            .sortedByDescending { (_, lastActivity) -> lastActivity }
+            .map { (conversation, _) -> conversation }
     }
 
     override suspend fun getOrCreateDialogue(
@@ -204,19 +230,8 @@ class DialogueRepository : IDialogueRepository {
                 .firstOrNull()?.photoUrl
         }
 
-        val msgDtos = client.from("dialogue_message")
-            .select { filter { eq("dialogue_id", dialogue.dialogueId) } }
-            .decodeList<DialogueMessageEntity>()
-        val attachmentMap = attachmentUrlsFor(msgDtos.map { it.messageId })
-        val messages = msgDtos.map { msg ->
-            ChatMessage(
-                id = msg.messageId.toString(),
-                text = msg.text,
-                isFromMe = msg.senderId == accountId,
-                time = msg.timestamp.take(16).replace("T", " "),
-                attachmentUrl = attachmentMap[msg.messageId],
-            )
-        }
+        val msgDtos = fetchMessages(dialogue.dialogueId)
+        val messages = toChatMessages(msgDtos, accountId)
 
         val otherName = otherAccount?.accountName ?: "Unknown"
         return Conversation(
@@ -224,9 +239,9 @@ class DialogueRepository : IDialogueRepository {
             dialogueId = dialogue.dialogueId,
             handle = otherName,
             initial = otherName.firstOrNull()?.uppercase() ?: "?",
-            avatarColor = avatarColors.first(),
+            avatarColor = avatarColors[otherAccountId % avatarColors.size],
             lastMessage = messages.lastOrNull()?.text ?: "",
-            timeLabel = messages.lastOrNull()?.time?.takeLast(5) ?: "",
+            timeLabel = messages.lastOrNull()?.time ?: "",
             unreadCount = msgDtos.count { it.senderId != accountId && !it.isRead },
             itemTitle = item?.name ?: otherName,
             fromLocation = location,
@@ -235,21 +250,8 @@ class DialogueRepository : IDialogueRepository {
         )
     }
 
-    override suspend fun getMessages(dialogueId: Int): List<ChatMessage> {
-        val msgDtos = client.from("dialogue_message")
-            .select { filter { eq("dialogue_id", dialogueId) } }
-            .decodeList<DialogueMessageEntity>()
-        val attachmentMap = attachmentUrlsFor(msgDtos.map { it.messageId })
-        return msgDtos.map { msg ->
-            ChatMessage(
-                id = msg.messageId.toString(),
-                text = msg.text,
-                isFromMe = msg.senderId == SessionManager.currentAccountId,
-                time = msg.timestamp.take(16).replace("T", " "),
-                attachmentUrl = attachmentMap[msg.messageId],
-            )
-        }
-    }
+    override suspend fun getMessages(dialogueId: Int): List<ChatMessage> =
+        toChatMessages(fetchMessages(dialogueId), SessionManager.currentAccountId)
 
     override suspend fun markDialogueRead(dialogueId: Int, accountId: Int) {
         // Flag every incoming (not-from-me) message in this dialogue as read. A homogeneous
@@ -265,13 +267,14 @@ class DialogueRepository : IDialogueRepository {
     override suspend fun sendMessage(dialogueId: Int, senderId: Int, text: String) {
         // Build a JsonObject rather than a Map<String, Any>: kotlinx.serialization has no
         // serializer for `Any`, so a heterogeneous map throws during serialization before the
-        // request is ever sent. `timestamp` is omitted so the DB default (now()) applies.
+        // request is ever sent. `timestamp` is stamped from the sender's device clock.
         client.from("dialogue_message").insert(
             buildJsonObject {
                 put("dialogue_id", dialogueId)
                 put("sender_id", senderId)
                 put("message_text", text)
                 put("is_read", false)
+                put("timestamp", TimeFormat.nowIso())
             }
         )
     }
@@ -287,6 +290,7 @@ class DialogueRepository : IDialogueRepository {
                 put("sender_id", senderId)
                 put("message_text", text)
                 put("is_read", false)
+                put("timestamp", TimeFormat.nowIso())
             }
         ) { select() }.decodeSingle<DialogueMessageEntity>()
 
