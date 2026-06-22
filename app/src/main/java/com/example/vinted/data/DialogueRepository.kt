@@ -175,12 +175,25 @@ class DialogueRepository : IDialogueRepository {
             ?: existing.firstOrNull()
             // `item_id` is intentionally omitted: it's optional thread metadata and is
             // absent from the deployed `dialogue` schema, so naming it here is rejected.
-            ?: client.from("dialogue").insert(
-                buildJsonObject {
-                    put("dialogue_creator_id", creatorId)
-                    put("dialogue_receiver_id", receiverId)
-                }
-            ) { select() }.decodeSingle<DialogueEntity>()
+            ?: try {
+                client.from("dialogue").insert(
+                    buildJsonObject {
+                        put("dialogue_creator_id", creatorId)
+                        put("dialogue_receiver_id", receiverId)
+                    }
+                ) { select() }.decodeSingle<DialogueEntity>()
+            } catch (_: Exception) {
+                // Concurrent insert by the other participant beat us — re-fetch the row.
+                client.from("dialogue")
+                    .select {
+                        filter {
+                            eq("dialogue_creator_id", creatorId)
+                            eq("dialogue_receiver_id", receiverId)
+                        }
+                    }
+                    .decodeList<DialogueEntity>()
+                    .first()
+            }
 
         val otherAccount = client.from("account")
             .select { filter { eq("account_id", otherAccountId) } }
