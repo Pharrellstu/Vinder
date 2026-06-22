@@ -6,6 +6,7 @@ val VinderAzure = Color(0xFF4E8098)
 val VinderAzureLight = Color(0xFFD6E8F5)
 val VinderGreen = Color(0xFF4CAF50)
 val VinderAmber = Color(0xFFFFC107)
+val VinderError = Color(0xFFD32F2F)
 
 val Grey97 = Color(0xFFF5F6F8)
 val Grey95 = Color(0xFFF0F0F5)

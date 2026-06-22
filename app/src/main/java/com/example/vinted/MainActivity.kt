@@ -338,7 +338,7 @@ private fun MainTabs(onLoggedOut: () -> Unit) {
             onTabSelected = onTabSelected,
             onProductClick = { openProduct = it },
         )
-        3 -> MessagesScreen(onTabSelected = onTabSelected)
+        3 -> MessagesScreen(onBack = { onTabSelected(0) }, onTabSelected = onTabSelected)
         4 -> key(profileReloadToken) {
             ProfileScreen(
                 onTabSelected = onTabSelected,

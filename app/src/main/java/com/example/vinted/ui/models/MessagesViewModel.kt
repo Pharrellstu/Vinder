@@ -73,7 +73,7 @@ class MessagesViewModel(
         val accountId = SessionManager.currentAccountId
         if (accountId == -1) return
         viewModelScope.launch {
-            runCatching { repository.markDialogueRead(conversation.dialogueId, accountId) }
+            runCatching { repository.markRead(conversation.dialogueId, accountId) }
         }
     }
 }

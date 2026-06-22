@@ -16,10 +16,14 @@ The application contains an Ai-powered search system, which help users to find d
 - **Build**: Gradle (Kotlin DSL)
 
 ## Brand Book
-- **Primary Color**: #4CAF50 (Green)
-- **Secondary Color**: #FFC107
-- **Accent Color + Logo**: #4E8098
-- **Font**: Instrument Serif for Logo, Inter for body text, Public Sans for headings
+Source of truth: `docs/DESIGN.md`. Summary:
+- **Primary Color**: #4E8098 (Deep Teal Blue) — `VinderAzure`. CTAs, active nav states, key highlights.
+- **Secondary/Accent Color**: #90C2E7 (Light Sky Blue) — hover states, secondary buttons, promotional badges.
+- **Background**: #F5F6F8 — `Grey97`. **Surface**: #FFFFFF — card/dropdown/modal backgrounds.
+- **Text**: #1C1C1E primary (`Grey11`), #8E8E93 secondary (`Grey57`).
+- **Borders/Dividers**: #E5E5EA — `Grey91`.
+- **Error/Destructive Color**: #D32F2F — `VinderError` (delete actions, log out, error text — always this token, never a one-off literal). Not in DESIGN.md; established separately for destructive-action consistency.
+- **Font**: A sans-serif system stack — Inter (`inter`) is the one wired in, used for both headings and body text via `Typography` in `Type.kt`, so it applies app-wide without per-screen overrides. Instrument Serif (`instrumentSerifNormal`) is reserved for the "Vinder" logo wordmark only — a separate brand asset not covered by DESIGN.md's general typography section.
 - **Logo**: A stylized "Vinder" in italic
 
 ## Figma design

@@ -38,9 +38,8 @@ import com.example.vinted.ui.theme.Grey57
 import com.example.vinted.ui.theme.Grey91
 import com.example.vinted.ui.theme.Grey97
 import com.example.vinted.ui.theme.VinderAzure
+import com.example.vinted.ui.theme.VinderError
 import com.example.vinted.ui.theme.VintedTheme
-
-private val ERROR_RED = Color(0xFFD32F2F)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -190,7 +189,7 @@ private fun EditProfileForm(
 
         if (state.errorMessage != null) {
             Spacer(modifier = Modifier.height(12.dp))
-            Text(text = state.errorMessage, color = ERROR_RED, fontSize = 13.sp)
+            Text(text = state.errorMessage, color = VinderError, fontSize = 13.sp)
         }
 
         Spacer(modifier = Modifier.height(28.dp))

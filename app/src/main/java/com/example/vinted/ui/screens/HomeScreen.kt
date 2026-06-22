@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Notifications
@@ -205,9 +206,9 @@ private fun VinderTopBar(onSearchToggle: () -> Unit, onNotificationsClick: () ->
             Text(
                 text = "Vinder",
                 color = VinderAzure,
-                fontSize = 22.sp,
+                fontSize = 26.sp,
                 fontFamily = instrumentSerifNormal,
-                fontStyle = FontStyle.Italic,
+                fontStyle = FontStyle.Italic
             )
         },
         actions = {
@@ -233,6 +234,7 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
         leadingIcon = {
             Icon(Icons.Outlined.Search, contentDescription = null, tint = Grey57)
         },
+        shape = RoundedCornerShape(percent = 50),
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = VinderAzure,
             focusedLeadingIconColor = VinderAzure,

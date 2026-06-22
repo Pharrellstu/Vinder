@@ -31,7 +31,6 @@ interface IDialogueRepository {
     suspend fun sendMessage(dialogueId: Int, senderId: Int, text: String)
     suspend fun sendImageMessage(dialogueId: Int, senderId: Int, bytes: ByteArray, caption: String)
     suspend fun getAttachmentUrl(messageId: Int): String?
-    suspend fun markDialogueRead(dialogueId: Int, accountId: Int)
     suspend fun markRead(dialogueId: Int, accountId: Int)
     suspend fun getUnreadCount(accountId: Int): Int
 }
@@ -183,14 +182,25 @@ class DialogueRepository : IDialogueRepository {
         otherAccountId: Int,
         itemId: Int?,
     ): Conversation {
-        // Normalise to canonical (min, max) pair so the query always matches the DB index.
-        val creatorId = minOf(accountId, otherAccountId)
-        val receiverId = maxOf(accountId, otherAccountId)
+        // A dialogue may have been created by either participant, so match both
+        // directions rather than canonicalising to (min, max). Canonicalising would
+        // break the insert below: the `dialogue_insert_creator` RLS policy requires
+        // dialogue_creator_id = the signed-in user, so whenever accountId > otherAccountId
+        // the canonical pair would put the *other* user in the creator slot and the
+        // insert would be silently rejected by RLS.
         val existing = client.from("dialogue")
             .select {
                 filter {
-                    eq("dialogue_creator_id", creatorId)
-                    eq("dialogue_receiver_id", receiverId)
+                    or {
+                        and {
+                            eq("dialogue_creator_id", accountId)
+                            eq("dialogue_receiver_id", otherAccountId)
+                        }
+                        and {
+                            eq("dialogue_creator_id", otherAccountId)
+                            eq("dialogue_receiver_id", accountId)
+                        }
+                    }
                 }
             }
             .decodeList<DialogueEntity>()
@@ -203,8 +213,8 @@ class DialogueRepository : IDialogueRepository {
             // absent from the deployed `dialogue` schema, so naming it here is rejected.
             ?: client.from("dialogue").insert(
                 buildJsonObject {
-                    put("dialogue_creator_id", creatorId)
-                    put("dialogue_receiver_id", receiverId)
+                    put("dialogue_creator_id", accountId)
+                    put("dialogue_receiver_id", otherAccountId)
                 }
             ) { select() }.decodeSingle<DialogueEntity>()
 
@@ -252,17 +262,6 @@ class DialogueRepository : IDialogueRepository {
 
     override suspend fun getMessages(dialogueId: Int): List<ChatMessage> =
         toChatMessages(fetchMessages(dialogueId), SessionManager.currentAccountId)
-
-    override suspend fun markDialogueRead(dialogueId: Int, accountId: Int) {
-        // Flag every incoming (not-from-me) message in this dialogue as read. A homogeneous
-        // Map<String, Boolean> serializes fine, unlike a mixed-type map.
-        client.from("dialogue_message").update(mapOf("is_read" to true)) {
-            filter {
-                eq("dialogue_id", dialogueId)
-                neq("sender_id", accountId)
-            }
-        }
-    }
 
     override suspend fun sendMessage(dialogueId: Int, senderId: Int, text: String) {
         // Build a JsonObject rather than a Map<String, Any>: kotlinx.serialization has no
@@ -318,7 +317,6 @@ class DialogueRepository : IDialogueRepository {
     }
 
     override suspend fun markRead(dialogueId: Int, accountId: Int) {
-        // Mark the other party's messages in this dialogue as read.
         client.from("dialogue_message").update(mapOf("is_read" to true)) {
             filter {
                 eq("dialogue_id", dialogueId)
