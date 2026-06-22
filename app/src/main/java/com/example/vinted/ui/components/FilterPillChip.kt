@@ -1,4 +1,5 @@
 package com.example.vinted.ui.components
+import com.example.vinted.ui.theme.SurfaceColor
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -27,7 +28,7 @@ fun FilterPillChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val bg = if (selected) VinderAzure else Color.White
+    val bg = if (selected) VinderAzure else SurfaceColor
     val textColor = if (selected) Color.White else Grey36
     val borderColor = if (selected) VinderAzure else Grey82
     Box(

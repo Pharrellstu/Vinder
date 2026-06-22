@@ -1,4 +1,5 @@
 package com.example.vinted.ui.screens
+import com.example.vinted.ui.theme.SurfaceColor
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -76,7 +77,7 @@ fun SellerPublicProfileScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Grey11)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceColor),
             )
         },
     ) { padding ->
@@ -246,7 +247,7 @@ private fun SellerActionButtons(
     ) {
         ActionPill(
             label = if (isFollowing) "Following" else "Follow",
-            bgColor = if (isFollowing) Color.White else VinderAzure,
+            bgColor = if (isFollowing) SurfaceColor else VinderAzure,
             textColor = if (isFollowing) Grey11 else Color.White,
             borderColor = if (isFollowing) Grey91 else Color.Transparent,
             onClick = if (isFollowing) onUnfollow else onFollow,
@@ -254,7 +255,7 @@ private fun SellerActionButtons(
         )
         ActionPill(
             label = "Message",
-            bgColor = Color.White,
+            bgColor = SurfaceColor,
             textColor = Grey11,
             borderColor = Grey91,
             onClick = onMessage,

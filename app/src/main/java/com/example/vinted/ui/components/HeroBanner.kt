@@ -1,4 +1,5 @@
 package com.example.vinted.ui.components
+import com.example.vinted.ui.theme.SurfaceColor
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -43,7 +44,7 @@ fun HeroBanner(
     modifier: Modifier = Modifier,
 ) {
     val gradient = Brush.linearGradient(
-        colors = listOf(VinderAzureLight, Color.White, VinderAzureLight),
+        colors = listOf(VinderAzureLight, SurfaceColor, VinderAzureLight),
     )
 
     Row(
@@ -81,7 +82,7 @@ private fun SpringDropBadge() {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(999.dp))
-            .background(Color.White.copy(alpha = 0.7f))
+            .background(SurfaceColor.copy(alpha = 0.7f))
             .padding(horizontal = 8.dp, vertical = 3.dp),
     ) {
         Text(

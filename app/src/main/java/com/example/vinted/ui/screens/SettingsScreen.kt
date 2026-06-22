@@ -1,4 +1,5 @@
 package com.example.vinted.ui.screens
+import com.example.vinted.ui.theme.SurfaceColor
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -40,6 +41,7 @@ fun SettingsScreen(
     onBack: () -> Unit = {},
     onLoggedOut: () -> Unit = {},
     onOpenNotifications: () -> Unit = {},
+    onChangePassword: () -> Unit = {},
     viewModel: SettingsViewModel = viewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -65,7 +67,7 @@ fun SettingsScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceColor),
             )
         },
     ) { padding ->
@@ -87,7 +89,7 @@ fun SettingsScreen(
                     icon = Icons.Outlined.Lock,
                     title = "Change password",
                     showChevron = true,
-                    onClick = {},
+                    onClick = onChangePassword,
                 )
             }
 
@@ -155,7 +157,7 @@ private fun LogoutButton(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(Color.White)
+            .background(SurfaceColor)
             .clickable(enabled = !isLoading, onClick = onClick)
             .padding(vertical = 15.dp),
         horizontalArrangement = Arrangement.Center,

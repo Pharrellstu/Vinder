@@ -1,4 +1,5 @@
 package com.example.vinted.ui.screens
+import com.example.vinted.ui.theme.SurfaceColor
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -65,7 +66,7 @@ fun OrderHistoryScreen(
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceColor),
             )
         },
         containerColor = Grey97,
@@ -128,7 +129,7 @@ private fun OrderCard(order: PurchaseWithItem) {
         modifier = Modifier
             .fillMaxWidth()
             .shadow(elevation = 1.dp, shape = RoundedCornerShape(12.dp), spotColor = Color.Black.copy(alpha = 0.06f))
-            .background(Color.White, shape = RoundedCornerShape(12.dp))
+            .background(SurfaceColor, shape = RoundedCornerShape(12.dp))
             .padding(16.dp),
     ) {
         Row(

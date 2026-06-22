@@ -1,4 +1,5 @@
 package com.example.vinted.ui.screens
+import com.example.vinted.ui.theme.SurfaceColor
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -223,7 +224,7 @@ private fun ItemDetailTopBar(
                 }
             }
         },
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceColor),
     )
 }
 
@@ -298,7 +299,7 @@ private fun PagerDots(count: Int, current: Int, modifier: Modifier = Modifier) {
                 modifier = Modifier
                     .size(if (active) 8.dp else 6.dp)
                     .clip(CircleShape)
-                    .background(if (active) VinderAzure else Color.White.copy(alpha = 0.7f)),
+                    .background(if (active) VinderAzure else SurfaceColor.copy(alpha = 0.7f)),
             )
         }
     }
@@ -358,7 +359,7 @@ private fun SectionTitle(text: String) {
 
 @Composable
 private fun ItemDetailBottomBar(onMakeOffer: () -> Unit, onBuyNow: () -> Unit) {
-    Column(modifier = Modifier.background(Color.White)) {
+    Column(modifier = Modifier.background(SurfaceColor)) {
         HorizontalDivider(color = Grey91)
         Row(
             modifier = Modifier
@@ -394,7 +395,7 @@ private fun ItemDetailBottomBar(onMakeOffer: () -> Unit, onBuyNow: () -> Unit) {
 
 @Composable
 private fun OwnListingBottomBar(onEdit: () -> Unit) {
-    Column(modifier = Modifier.background(Color.White)) {
+    Column(modifier = Modifier.background(SurfaceColor)) {
         HorizontalDivider(color = Grey91)
         Row(
             modifier = Modifier
@@ -429,7 +430,7 @@ private fun MakeOfferSheet(product: Product, onDismiss: () -> Unit, onSubmit: (S
     val sheetState = rememberModalBottomSheetState()
     var offer by remember { mutableStateOf("") }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = Color.White) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = SurfaceColor) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -493,7 +494,7 @@ private fun BuyNowSheet(product: Product, onDismiss: () -> Unit, onConfirm: () -
     val sheetState = rememberModalBottomSheetState()
     val total = product.price + SHIPPING_FEE + BUYER_PROTECTION_FEE
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = Color.White) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = SurfaceColor) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()

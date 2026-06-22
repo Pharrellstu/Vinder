@@ -1,4 +1,5 @@
 package com.example.vinted.ui.components
+import com.example.vinted.ui.theme.SurfaceColor
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -58,7 +59,7 @@ fun SellerProfileCard(
         modifier = modifier
             .fillMaxWidth()
             .clip(cardShape)
-            .background(Color.White)
+            .background(SurfaceColor)
             .border(1.dp, Grey91, cardShape)
             .padding(14.dp),
     ) {

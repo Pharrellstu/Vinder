@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.example.vinted.ui.models.SplashState
@@ -37,6 +38,7 @@ import com.example.vinted.notifications.VinderNotifications
 import com.example.vinted.ui.models.Conversation
 import com.example.vinted.ui.models.Product
 import com.example.vinted.ui.screens.AddProductScreen
+import com.example.vinted.ui.screens.ChangePasswordScreen
 import com.example.vinted.ui.screens.ChatScreen
 import com.example.vinted.ui.screens.ForgotPasswordScreen
 import com.example.vinted.ui.screens.EditProfileScreen
@@ -55,6 +57,7 @@ import com.example.vinted.ui.screens.SearchResultsScreen
 import com.example.vinted.ui.screens.SellerPublicProfileScreen
 import com.example.vinted.ui.screens.SettingsScreen
 import com.example.vinted.ui.screens.WishlistScreen
+import com.example.vinted.ui.theme.VinderPalette
 import com.example.vinted.ui.theme.VintedTheme
 import com.example.vinted.util.ErrorMessages
 
@@ -105,6 +108,12 @@ class MainActivity : ComponentActivity() {
         splashScreen.setKeepOnScreenCondition { splashViewModel.state is SplashState.Loading }
         enableEdgeToEdge()
         setContent {
+            // Keep the status-bar icons legible against the themed background.
+            val darkTheme = VinderPalette.dark
+            SideEffect {
+                WindowCompat.getInsetsController(window, window.decorView)
+                    .isAppearanceLightStatusBars = !darkTheme
+            }
             VintedTheme {
                 VinderApp(
                     splashViewModel = splashViewModel,
@@ -182,6 +191,7 @@ private fun MainTabs(onLoggedOut: () -> Unit) {
     var editItemId by remember { mutableStateOf<Int?>(null) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var showNotifications by rememberSaveable { mutableStateOf(false) }
+    var showChangePassword by rememberSaveable { mutableStateOf(false) }
     var profileReloadToken by rememberSaveable { mutableStateOf(0) }
 
     // Fetch the inbox unread count once on entry so the bottom-nav badge is
@@ -280,11 +290,19 @@ private fun MainTabs(onLoggedOut: () -> Unit) {
         return
     }
 
+    // Change password is a sub-screen of Settings; backing out returns to Settings.
+    if (showChangePassword) {
+        BackHandler { showChangePassword = false }
+        ChangePasswordScreen(onBack = { showChangePassword = false })
+        return
+    }
+
     if (showSettings) {
         SettingsScreen(
             onBack = { showSettings = false },
             onLoggedOut = onLoggedOut,
             onOpenNotifications = { showNotifications = true },
+            onChangePassword = { showChangePassword = true },
         )
         return
     }

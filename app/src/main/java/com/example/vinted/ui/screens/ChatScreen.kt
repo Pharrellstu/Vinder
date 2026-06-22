@@ -1,4 +1,5 @@
 package com.example.vinted.ui.screens
+import com.example.vinted.ui.theme.SurfaceColor
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -154,7 +155,7 @@ fun ChatScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceColor),
             )
         },
         bottomBar = {
@@ -228,7 +229,7 @@ private fun DateSeparator(label: String) {
 
 @Composable
 private fun MessageBubble(message: ChatMessage) {
-    val bubbleColor = if (message.isFromMe) VinderAzure else Color.White
+    val bubbleColor = if (message.isFromMe) VinderAzure else SurfaceColor
     val textColor = if (message.isFromMe) Color.White else Grey11
     val shape = if (message.isFromMe) {
         RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 4.dp)
@@ -369,7 +370,7 @@ private fun ChatInputBar(
 ) {
     Row(
         modifier = Modifier
-            .background(Color.White)
+            .background(SurfaceColor)
             .fillMaxWidth()
             .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 22.dp),
         verticalAlignment = Alignment.CenterVertically,

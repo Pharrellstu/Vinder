@@ -1,4 +1,5 @@
 package com.example.vinted.ui.screens
+import com.example.vinted.ui.theme.SurfaceColor
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -90,7 +91,7 @@ fun MyListingsScreen(
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceColor),
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -156,7 +157,7 @@ private fun MyListingCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(Color.White)
+            .background(SurfaceColor)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -244,7 +245,7 @@ private fun MyListingCard(
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") }
             },
-            containerColor = Color.White,
+            containerColor = SurfaceColor,
             shape = RoundedCornerShape(16.dp),
         )
     }

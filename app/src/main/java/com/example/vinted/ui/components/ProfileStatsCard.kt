@@ -1,4 +1,5 @@
 package com.example.vinted.ui.components
+import com.example.vinted.ui.theme.SurfaceColor
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -36,7 +37,7 @@ fun ProfileStatsCard(
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(Color.White)
+            .background(SurfaceColor)
             .border(1.dp, Grey91, RoundedCornerShape(12.dp))
             .padding(vertical = 15.dp, horizontal = 1.dp),
         verticalAlignment = Alignment.CenterVertically,
