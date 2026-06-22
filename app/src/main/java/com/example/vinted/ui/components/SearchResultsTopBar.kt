@@ -32,8 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.vinted.ui.theme.Grey11
 import com.example.vinted.ui.theme.Grey57
+import com.example.vinted.ui.theme.Grey95
 
-private val searchBgColor = Color(0xFFF0F0F5)
 private val pillShape = RoundedCornerShape(999.dp)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -75,7 +75,7 @@ private fun SearchPill(
         modifier = modifier
             .height(35.dp)
             .clip(pillShape)
-            .background(searchBgColor)
+            .background(Grey95)
             .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),

@@ -1,62 +1,108 @@
-# DESIGN.md - Marketplace Application
+# DESIGN.md — Vinder (Android)
+
+Source of truth for Vinder's design system, reflecting the actual Jetpack Compose implementation (not a web mockup). CLAUDE.md's brand-book summary is derived from this file.
 
 ## 1. Project Overview
-A high-fidelity, responsive marketplace web application focused on buying and selling second-hand items. The layout mimics the proven UX/UI paradigms of established platforms like Vinted and Marktplaats, structured with a custom color scheme.
+Vinder is a native Android marketplace app (Kotlin + Jetpack Compose) for buying and selling second-hand items, in the spirit of Vinted/Marktplaats. Navigation is a single-activity, state-driven screen stack (no Compose Navigation graph) rooted in `MainActivity.kt`.
 
-## 2. Color Palette
-- **Primary Brand Color**: `#4E8098` (Deep Teal Blue) - Applied to primary call-to-action buttons, active navigation states, and crucial UI highlights.
-- **Secondary/Accent Color**: `#90C2E7` (Light Sky Blue) - Applied to hover states, secondary buttons, promotional badges, and subtle background accents.
-- **Background Color**: `#F5F6F8` - A standard off-white/gray application background designed to create depth between the canvas and interactive cards.
-- **Surface Color**: `#FFFFFF` - White for item cards, dropdown menus, and modal dialogs.
-- **Text Colors**: 
-  - Primary Text: `#1C1C1E` (Nearly black for optimal contrast)
-  - Secondary Text: `#8E8E93` (Muted gray for timestamps, brands, and sizes)
-- **Borders/Dividers**: `#E5E5EA`
+## 2. Design Tokens
 
-## 3. Typography
-- **Font Family**: Primary system sans-serif stack (Inter, Roboto, or San Francisco) to maintain a modern, native feel.
-- **Headings**: Bold, tight tracking.
-- **Body/UI**: Base size 14px-16px. 
+### 2.1 Color (`ui/theme/Color.kt`)
+| Token | Hex | Usage |
+|---|---|---|
+| `VinderAzure` | `#4E8098` | Primary brand color — CTAs, active nav state, selected chips, links, icon tints |
+| `VinderAzureLight` | `#D6E8F5` | Hero banner gradient |
+| `VinderGreen` | `#4CAF50` | Positive/success accents |
+| `VinderAmber` | `#FFC107` | Ratings/stars, secondary Material color |
+| `VinderError` | `#D32F2F` | Destructive actions (delete, log out), error text — always reference this token |
+| `Grey97` | `#F5F6F8` | App/screen background |
+| `Grey95` | `#F0F0F5` | Search bar / search-results background, unselected chip fill |
+| `Grey94` | `#EFEFF2` | Subtle surface fill |
+| `Grey91` | `#E5E5EA` | Borders, dividers, image placeholder background |
+| `Grey57` | `#8E8E93` | Secondary text (timestamps, sizes, brand labels) |
+| `Grey36` | `#5A5A60` | Tertiary text (stat labels, seller meta) |
+| `Grey11` | `#1C1C1E` | Primary text |
+| `Grey82` | `#D1D1D6` | Filter pill unselected border, bottom-sheet drag handle |
+| `inputColor` | `#E5EEF3` | Text input fill on auth screens |
+| `grayColor` | `#D9D9D9` | Misc borders (auth screens, filter chips) |
+| `boxDivColor` | `#FDF8F8` | Auth card background |
+| `StatusPendingBg` | `#FFF8E1` | Offer status badge background — pending |
+| `StatusPendingText` | `#F57F17` | Offer status badge text — pending |
+| `StatusAcceptedBg` | `#E8F5E9` | Offer status badge background — accepted |
+| `StatusAcceptedText` | `#2E7D32` | Offer status badge text — accepted |
+| `StatusRejectedBg` | `#FFEBEE` | Offer status badge background — rejected |
+| `StatusRejectedText` | `#C62828` | Offer status badge text — rejected |
+| `StatusCancelledBg` | `#F5F5F5` | Offer status badge background — cancelled (text uses `Grey57`) |
 
-## 4. Layout & Architecture
+Surfaces use plain white (`Color.White`); there's no dedicated "Surface" token yet.
 
-### 4.1. Global Header
-- **Top Bar (Sticky)**:
-  - **Logo**: Left-aligned, utilizing `#4E8098`.
-  - **Search Bar**: Centered, expansive, with a pill-shaped or slightly rounded rectangle design. Light gray background `#F0F0F5` with a subtle search icon.
-  - **User Actions**: Right-aligned.
-    - Login/Register buttons.
-    - **Primary CTA**: "Sell now" button (Solid `#4E8098` background, white text, slightly rounded corners).
-    - System icons: Messages, Notifications, Profile avatar.
-- **Category Navigation**:
-  - Horizontal scrollable bar below the top header containing categories (Women, Men, Kids, Home, Electronics).
-  - Active states underlined or highlighted in `#4E8098`.
+### 2.2 Typography (`ui/theme/Type.kt`, `Font.kt`)
+Single font family app-wide: **Inter** (`inter`, one static weight file — Compose synthesizes Bold/SemiBold). Mapped into Material3 `Typography`:
 
-### 4.2. Hero Section
-- A full-width banner container (accounting for side margins) featuring lifestyle imagery or illustrations.
-- Typography overlay with a clear value proposition (e.g., "Ready to declutter?").
-- The background gradient or graphic elements should heavily feature `#90C2E7` to establish the brand identity immediately.
+| Style | Size | Weight | Notes |
+|---|---|---|---|
+| `headlineLarge` | 28sp | Normal | |
+| `titleLarge` | 24sp | SemiBold | |
+| `titleMedium` | 16sp | SemiBold | |
+| `bodyLarge` | 13sp | Normal | |
+| `bodySmall` | 11sp | Normal | |
+| `labelLarge` | 13sp | Bold | |
+| `labelSmall` | 10sp | Normal | letter-spacing 0.8sp |
 
-### 4.3. Main Content Feed
-- **Feed Layout**: CSS Grid setup (`grid-template-columns: repeat(auto-fill, minmax(220px, 1fr))`) ensuring responsive scaling from mobile to ultra-wide displays.
-- **Item Cards**:
-  - **Media**: Image thumbnail maintaining a consistent aspect ratio (e.g., 4:5). Full width of the card.
-  - **Overlays**: A heart icon floating in the top right corner for "Favorite" actions.
-  - **Metadata Row 1**: Bold pricing (e.g., "€25.00").
-  - **Metadata Row 2**: Size and Brand (Secondary Text color).
-  - **Seller Info**: Small avatar and username underneath or overlaid on the bottom edge of the image.
+**Instrument Serif** (`instrumentSerifNormal`, italic variant available) is reserved exclusively for the "Vinder" wordmark logo:
+- Auth screens (Login/Register/ForgotPassword): 56sp, italic, `VinderAzure`, default weight.
+- HomeScreen top bar: 26sp, italic, `VinderAzure`, **SemiBold** (the one place the logo is bolder, to hold up at small size in the app bar).
 
-### 4.4. Global Footer
-- Multi-column layout (Grid or Flexbox).
-- Sections: App links (About, Careers), Help & Support, Privacy & Terms, Social Media links.
-- Background: Plain white or subtly tinted `#EAF3FA`.
+Many screens set `fontFamily`/`fontSize`/`fontWeight` inline on `Text` rather than pulling a named `MaterialTheme.typography` style — the type scale above is the intent, but per-screen sizes drift somewhat in practice.
 
-## 5. State Management & Interactions
-- **Hover Effects**: Item cards elevate with a slight drop shadow (`box-shadow: 0 4px 12px rgba(0,0,0,0.08)`) and a subtle `-2px` Y-axis translation.
-- **Button States**: Primary buttons shift to `#90C2E7` or a darker shade of `#4E8098` upon hover/focus.
-- **Loading Mechanisms**: Implement skeleton loaders mirroring the card dimensions prior to DOM hydration.
+### 2.3 Shape (`ui/theme/Shape.kt`)
+- `roundedInputShape` = `RoundedCornerShape(20.dp)` — text inputs.
+- Pills (category chips, search "Spring Drop" badge, chat bubbles): `RoundedCornerShape(999.dp)`.
+- Cards/images: `10–16.dp` corner radius depending on component (see §4).
+- Buttons: `8–12.dp` corner radius.
 
-## 6. Development & Implementation Notes
-- **Design Tokens**: Map all colors to CSS variables (e.g., `--color-primary: #4E8098`) to streamline theming and potential dark mode implementation.
-- **Mobile Paradigm**: Shift the "Sell now" button to a fixed bottom navigation bar or a prominent Floating Action Button (FAB) on viewports `< 768px`. The category header should collapse into a horizontal swiping pill list or a hamburger menu.
+### 2.4 Spacing
+- Screen horizontal padding: **16dp** (most screens).
+- Section/group gaps: **20dp**.
+- Card/grid internal padding: **10dp**.
+- Tight/chip padding: **4–6dp**.
+- Bottom nav bottom inset: **22dp** (clears the system nav bar).
+- Standard tappable/input height: **46–50dp**.
+
+## 3. Navigation Structure
+`MainActivity.kt` drives a 5-tab bottom nav (Home, Search, Sell, Inbox, Profile) plus a stack of boolean-flagged full-screen overlays layered on top of the current tab (each with its own `BackHandler`):
+
+```
+Tabs: Home(0) · Search(1) · Sell FAB(2, modal) · Inbox(3) · Profile(4)
+Overlays (stack, most specific on top):
+  ItemDetail → SellerPublicProfile → Chat
+  EditProfile / Settings → NotificationSettings
+  MyListings / Offers / OrderHistory / Wishlist
+```
+
+The center FAB (tab 2) opens `AddProductScreen` as a modal rather than selecting a tab.
+
+## 4. Reusable Components (`ui/components/`)
+
+- **`BottomNavBar`** — Home/Search/Inbox/Profile as Material outlined icons + 10sp label; selected = `VinderAzure` + Bold, unselected = `Grey57` + Normal. Center 50dp circular FAB (`VinderAzure`, white plus icon, 8dp shadow). Unread-message badge: 16dp `VinderAzure` circle, caps at "9+". Bar background: white at 96% alpha with a `Grey91` top divider.
+- **`GridProductCard`** (2-col home/wishlist grid) — 10dp corner image (215dp tall, `Grey91` placeholder fill), 28dp circular favorite toggle (white 92% alpha), 4dp-radius `VinderAzure` discount badge, price 14sp Bold, name 12sp/2 lines, size+brand 11sp `Grey57`, seller row with 16dp `InitialAvatar` + 10sp name + 9sp rating.
+- **`SaleProductCard`** — fixed 130dp-wide horizontal-carousel variant of the grid card (160dp image).
+- **`SearchResultCard`** — search-grid variant, 128dp image, slightly tighter padding/type.
+- **`HeroBanner`** — gradient row (`VinderAzureLight` → white → `VinderAzureLight`), 16dp corners, `Grey91` border; "SPRING DROP" pill badge; heading + subtitle; `VinderAzure` "Sell something →" CTA (8dp corners); two rotated 72×96dp placeholder images for visual interest.
+- **`SellerProfileCard`** / **`InitialAvatar`** — circular avatar with the initial letter (white text on `VinderAzure`, sized at ~40% of the avatar box; default 44dp, 16dp in compact contexts). Card: white, 12dp corners, `Grey91` border. Header row: avatar + name (15sp SemiBold) + verified badge + chevron. Rating row uses `VinderAmber` star. Stats row uses grey-tinted icons. "Message seller" is an outlined `VinderAzure` button.
+- **`SettingsComponents`** — grouped white sections (14dp corners) with uppercase grey section titles; each row has a 34dp `Grey97` icon badge (`VinderAzure` tint), title, optional subtitle, and a trailing chevron or switch.
+- **`FilterBottomSheet` / `FilterPillChip`** — modal sort/filter sheet and pill-shaped filter chips.
+
+## 5. Key Screens
+
+- **HomeScreen** — `Grey97` background; top bar holds the SemiBold Instrument-Serif logo, search toggle, and notification bell; below it: category pill row → hero banner → "On sale today" horizontal carousel → "Latest finds" product grid, in a single `LazyColumn`.
+- **ItemDetailScreen** — full-width `HorizontalPager` image gallery, info column (price/title/description/stats), `SellerProfileCard`, and a sticky two-button bar: outlined "Make Offer" + filled "Buy Now".
+- **SearchResultsScreen** — `Grey95` background; custom top bar with inline query field, sort/filter bar, `FilterBottomSheet` modal, results grid of `SearchResultCard`.
+- **MyListingsScreen** — top app bar with overflow menu, grid of the seller's own listings, delete confirmation dialog, snackbar errors.
+- **ChatScreen** — top bar with seller name/avatar; message list with pill-shaped bubbles (`VinderAzure` for own messages, `Grey95` for the other party); input row with photo-attach + circular send button.
+- **SettingsScreen** — grouped `SettingsComponents` sections: Account, Preferences, Support, About.
+- **ProfileScreen** — header (avatar, name, rating, stats) + `ScrollableTabRow` (Listings/Sold/Reviews) over a `LazyVerticalGrid`.
+- **OffersScreen** — list of incoming offers with seller info, item thumbnail, offered price, and a status badge (pending/accepted/rejected/cancelled).
+- **AddProductScreen** — multi-step listing form (title → category → condition → description → photos → price), each step gated behind a `VinderAzure` Continue/Submit button.
+- **Auth screens** (Login/Register/ForgotPassword) — shared pattern: centered ~380dp card (`boxDivColor` fill, 1dp 10%-black border, 15–16dp corners) on a white background; 56sp italic Instrument-Serif logo; inputs use `inputColor` fill + `roundedInputShape` (20dp); primary action is a full-width filled `VinderAzure` button, secondary actions are `VinderAzure`-outlined.
 
