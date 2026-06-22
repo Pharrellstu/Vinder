@@ -8,6 +8,7 @@ import com.example.vinted.data.SessionManager
 import com.example.vinted.data.dto.DialogueMessageEntity
 import com.example.vinted.ui.initialisers.SupabaseClientInitialiser
 import com.example.vinted.util.ErrorMessages
+import com.example.vinted.util.TimeFormat
 import io.github.jan.supabase.realtime.PostgresAction
 import io.github.jan.supabase.realtime.channel
 import io.github.jan.supabase.realtime.decodeRecord
@@ -77,7 +78,7 @@ class ChatViewModel(
                 id = entity.messageId.toString(),
                 text = entity.text,
                 isFromMe = entity.senderId == SessionManager.currentAccountId,
-                time = entity.timestamp.take(16).replace("T", " "),
+                time = TimeFormat.toLocalTimeLabel(entity.timestamp),
                 attachmentUrl = attachmentUrl,
             )
             val current = _uiState.value
