@@ -33,7 +33,6 @@ object VinderNotifications {
     private val channelImportance = mapOf(
         "Messages" to NotificationManager.IMPORTANCE_HIGH,
         "Activity" to NotificationManager.IMPORTANCE_DEFAULT,
-        "Marketing" to NotificationManager.IMPORTANCE_LOW,
         BACKGROUND_GROUP to NotificationManager.IMPORTANCE_MIN,
     )
 
