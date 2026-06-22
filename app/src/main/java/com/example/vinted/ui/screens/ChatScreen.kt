@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -234,9 +235,9 @@ private fun MessageBubble(message: ChatMessage) {
     } else {
         RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 4.dp, bottomEnd = 16.dp)
     }
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (message.isFromMe) Arrangement.End else Arrangement.Start,
+        horizontalAlignment = if (message.isFromMe) Alignment.End else Alignment.Start,
     ) {
         if (message.attachmentUrl != null) {
             // Image messages render the photo edge-to-edge in the bubble; the placeholder
@@ -260,6 +261,14 @@ private fun MessageBubble(message: ChatMessage) {
             ) {
                 Text(text = message.text, fontSize = 13.sp, color = textColor)
             }
+        }
+        if (message.time.isNotBlank()) {
+            Text(
+                text = message.time,
+                fontSize = 10.sp,
+                color = Grey57,
+                modifier = Modifier.padding(top = 2.dp, start = 4.dp, end = 4.dp),
+            )
         }
     }
 }

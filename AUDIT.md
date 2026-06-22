@@ -79,7 +79,7 @@ App is now Supabase-hosted on the web, not the local Docker stack this document 
 | 11 | `SessionManager.currentAccountId` default was `0` | 🟡 Medium | ✅ Resolved | Changed to `NO_ACCOUNT_ID = -1`; `isLoggedIn()` guard added; `confirmBuy()`/`submitOffer()` pass through `SessionManager.currentAccountId` which is now `-1` (not `0`) when unset — still no null-guard in call sites but sentinel is no longer a valid account ID |
 | 12 | Dead files `ChatRepository.kt`, `SupabaseConfig.kt` | ❌ Open | ✅ Resolved | Both files deleted; commit `e0d3893` |
 | 13 | Missing indexes on `purchase(buyer_id, seller_id)` | ❌ Open | ✅ Resolved | Migration `008` adds `idx_purchase_buyer` + `idx_purchase_seller` |
-| 14 | Push notifications — no FCM / background delivery | ❌ Missing | 🔶 Partial | `MessageNotificationController` + `VinderNotifications` deliver local notifications via Supabase Realtime while app is foregrounded; no FCM = no delivery when app is killed |
+| 14 | Push notifications — no background delivery | ❌ Missing | 🔶 Partial | **Root cause (found via on-device logcat):** background-delivered inserts WERE arriving over Realtime, but `handleIncoming` re-verified dialogue participation with a Postgrest read of `dialogue` — which from the foreground-less service has no auth token, so RLS returned empty and every notification was silently dropped. Fix: removed that redundant lookup (Realtime already enforces the `dialogue_message` participant RLS — verified: a non-participant insert is not delivered). Also: `MessageListenerService` foreground service, in-service session restore (`ensureSession`), network-regain reconnect, battery-opt prompt (`MainActivity`), `BootReceiver`. Verified on emulator (API 37): notification posts while backgrounded. **Activity notifications added:** the same listener now also streams `item_offer`, `purchase`, `account_following` inserts (migration `009`) and posts Offers / Item sold / New followers notifications, filtered to the recipient using only the streamed row (no background Postgrest). Notification settings were trimmed to only the deliverable options (New messages, Offers, Item sold, New followers); message-requests, reviews, and all marketing toggles were removed since nothing creates those events / there's no push backend. All four verified on-device. Known gaps — sender name falls back to "New message" in the background (the restored service session had an expired access token and no refresh token, so authed Postgrest reads fail there — a session-persistence issue worth a separate look), and Google-free means no FCM so no delivery when swiped-away/deep-Doze |
 
 ---
 
@@ -107,7 +107,7 @@ Only features whose status changed since the 2026-06-18 audit:
 | Session persistence | ❌ | ✅ | `SplashViewModel` + `AccountPreferences`; SDK session auto-persisted by supabase-kt |
 | Password reset | 🔶 | ✅ | Full 3-step OTP flow wired end-to-end |
 | Notification settings | ❌ | 🔶 | Prefs now persist; in-app message notifications delivered via Realtime; no background push (FCM) |
-| Push notifications | ❌ | 🔶 | Foreground-only Realtime delivery; FCM not integrated |
+| Push notifications | ❌ | 🔶 | Realtime delivery kept alive in background by `MessageListenerService` (session restore + reconnect + battery prompt + boot restart); no FCM, so no killed-app/deep-Doze delivery |
 
 ---
 
@@ -149,7 +149,7 @@ Only features whose status changed since the 2026-06-18 audit:
 | Messaging list | ✅ | `MessagesScreen` loads conversations from DB |
 | Chat | ✅ | `ChatScreen` with Supabase Realtime subscription |
 | Message attachments | ✅ | Gallery picker, full-screen send preview with optional caption, upload to `item-photos` under `chat/{dialogueId}/`, `dialogue_message_attachment` row; both sides see image via direct Postgrest lookup |
-| Message notifications | 🔶 | Local notifications via Realtime while foregrounded; no FCM background delivery |
+| Message notifications | 🔶 | Realtime notifications via `MessageListenerService` foreground service (works backgrounded/locked); no FCM = no killed-app delivery |
 | Notification settings | 🔶 | Prefs persist via SharedPreferences; no server-side preference sync |
 | Ratings & reviews | ❌ | `account_rating` + `rating` tables in schema; zero app code or UI |
 | Followers | ✅ | `AccountRepository.follow/unfollow/isFollowing()`; `ProfileViewModel` exposes `isFollowing` StateFlow with optimistic update + rollback; `SellerPublicProfileScreen` Follow button persists to DB |
