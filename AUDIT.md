@@ -72,20 +72,20 @@ App is now Supabase-hosted on the web, not the local Docker stack this document 
 | 4 | Duplicate auth ViewModels — `AuthViewModel` + `LoginViewModel` | ❌ Open | ✅ Resolved | `AuthViewModel.kt` and `AuthenticateAccountScreen.kt` deleted; `RegistrationViewModel.kt` added to replace the registration half; no dead references remain |
 | 5 | RLS missing on `dialogue` / `dialogue_message` | ❌ Critical | ✅ Resolved | Migration `003_chat_realtime_and_policies.sql` enables RLS and adds participant-scoped policies for SELECT/INSERT/UPDATE on both tables; Realtime publication added |
 | 6 | RLS missing on all other public tables | ❌ Critical | ✅ Resolved | All 12 remaining tables now protected; migration `007_rls_remaining_tables.sql` enables RLS and adds appropriate policies on `account`, `account_side_information`, `item`, `item_photo`, `item_offer`, `purchase`, `status`, `rating`, `account_following`, `account_rating` (also activates inert 004/005 policies on `item`/`item_photo`) |
-| 7 | Client-side fee calculation (`ItemDetailViewModel.kt:38-39`) | ⚠ High | ❌ Open | `SHIPPING_FEE = 3.95`, `BUYER_PROTECTION_FEE = 0.90` still hardcoded in client; client still sends fee amounts to DB; spoofable |
+| 7 | Client-side fee calculation (`ItemDetailViewModel.kt:38-39`) | ⚠ High | ⚠ Fix written, deployment unverified | Migration `011_enforce_purchase_fees_serverside.sql` adds a `BEFORE INSERT OR UPDATE` trigger on `public.purchase` that overwrites `shipping_fee`/`protection_fee`/`total_amount` server-side regardless of client-supplied values. Not yet confirmed live — verify with `select tgname from pg_trigger where tgrelid = 'public.purchase'::regclass` against the hosted project before treating this as closed |
 | 8 | `markAsSold()` + `updateItemToListed()` no ownership check | ⚠ High | ✅ Resolved | `item_update_own` policy (migration 004) now active — RLS enabled on `item` by migration 007; DB rejects updates where `seller_id ≠ current_account_id()` |
-| 9 | `item-photos` storage upload path not user-scoped | ⚠ High | ❌ Open | `001_create_item_photos_bucket.sql` policy still only checks `bucket_id = 'item-photos'`; any authenticated user can overwrite `items/<other_user_id>/...` |
+| 9 | `item-photos` storage upload path not user-scoped | ⚠ High | ✅ Resolved (confirmed live 2026-06-21) | Migration `009_fix_item_photos_upload_scoping.sql` recreates the `"item-photos: authenticated upload"` policy with per-prefix ownership scoping. Initially found NOT applied (live `with_check` was still the unscoped migration-001 policy); re-verified after the user ran the migration — live `with_check` now matches 009 exactly: `items/<itemId>` gated on `seller_id = current_account_id()`, `avatars/<accountId>` gated on `current_account_id()`, `chat/<dialogueId>` gated on dialogue participancy. |
 | 10 | No file type/size limit on `item-photos` bucket | 🟡 Medium | ✅ Resolved | Migration `008` sets `file_size_limit = 5 MB`, `allowed_mime_types = [jpeg, png, webp]` |
 | 11 | `SessionManager.currentAccountId` default was `0` | 🟡 Medium | ✅ Resolved | Changed to `NO_ACCOUNT_ID = -1`; `isLoggedIn()` guard added; `confirmBuy()`/`submitOffer()` pass through `SessionManager.currentAccountId` which is now `-1` (not `0`) when unset — still no null-guard in call sites but sentinel is no longer a valid account ID |
 | 12 | Dead files `ChatRepository.kt`, `SupabaseConfig.kt` | ❌ Open | ✅ Resolved | Both files deleted; commit `e0d3893` |
 | 13 | Missing indexes on `purchase(buyer_id, seller_id)` | ❌ Open | ✅ Resolved | Migration `008` adds `idx_purchase_buyer` + `idx_purchase_seller` |
-| 14 | Push notifications — no FCM / background delivery | ❌ Missing | 🔶 Partial | `MessageNotificationController` + `VinderNotifications` deliver local notifications via Supabase Realtime while app is foregrounded; no FCM = no delivery when app is killed |
+| 14 | Push notifications — no background delivery | ❌ Missing | 🔶 Partial | **Root cause (found via on-device logcat):** background-delivered inserts WERE arriving over Realtime, but `handleIncoming` re-verified dialogue participation with a Postgrest read of `dialogue` — which from the foreground-less service has no auth token, so RLS returned empty and every notification was silently dropped. Fix: removed that redundant lookup (Realtime already enforces the `dialogue_message` participant RLS — verified: a non-participant insert is not delivered). Also: `MessageListenerService` foreground service, in-service session restore (`ensureSession`), network-regain reconnect, battery-opt prompt (`MainActivity`), `BootReceiver`. Verified on emulator (API 37): notification posts while backgrounded. **Activity notifications added:** the same listener now also streams `item_offer`, `purchase`, `account_following` inserts (migration `009`) and posts Offers / Item sold / New followers notifications, filtered to the recipient using only the streamed row (no background Postgrest). Notification settings were trimmed to only the deliverable options (New messages, Offers, Item sold, New followers); message-requests, reviews, and all marketing toggles were removed since nothing creates those events / there's no push backend. All four verified on-device. Known gaps — sender name falls back to "New message" in the background (the restored service session had an expired access token and no refresh token, so authed Postgrest reads fail there — a session-persistence issue worth a separate look), and Google-free means no FCM so no delivery when swiped-away/deep-Doze |
 
 ---
 
 ### New Issues Found
 
-| # | Area | Severity | Description | File:Line |
+| # | Area | Sev[local.properties.example](local.properties.example)erity | Description | File:Line |
 |---|------|----------|-------------|-----------|
 | N1 | Notifications | Low | ✅ Resolved | `NotificationPreferences.init()` moved to `VinderApplication.onCreate()`; commit `e0d3893` | `VinderApplication.kt` |
 | N2 | Chat notifications | Low | ✅ Resolved | `senderNameCache` added to `MessageNotificationController`; sender name Postgrest query now fires at most once per sender per session; commit `e0d3893` | `MessageNotificationController.kt` |
@@ -107,7 +107,7 @@ Only features whose status changed since the 2026-06-18 audit:
 | Session persistence | ❌ | ✅ | `SplashViewModel` + `AccountPreferences`; SDK session auto-persisted by supabase-kt |
 | Password reset | 🔶 | ✅ | Full 3-step OTP flow wired end-to-end |
 | Notification settings | ❌ | 🔶 | Prefs now persist; in-app message notifications delivered via Realtime; no background push (FCM) |
-| Push notifications | ❌ | 🔶 | Foreground-only Realtime delivery; FCM not integrated |
+| Push notifications | ❌ | 🔶 | Realtime delivery kept alive in background by `MessageListenerService` (session restore + reconnect + battery prompt + boot restart); no FCM, so no killed-app/deep-Doze delivery |
 
 ---
 
@@ -141,7 +141,7 @@ Only features whose status changed since the 2026-06-18 audit:
 | Product detail view | ✅ | `ItemDetailScreen` with photo carousel, description, seller card |
 | Cart | ❌ | No multi-item cart concept; items are bought individually. `account_favorite` is used by Wishlist |
 | Wishlist | ✅ | `account_favorite`-backed; heart button on `GridProductCard` and `ItemDetailScreen` toggles persisted state; `WishlistScreen` reachable from `ProfileScreen`; RLS via migration 006 |
-| Buy flow | 🔶 | `confirmBuy()` inserts to `purchase` and marks item sold, but fees calculated client-side (spoofable); no payment gateway. Self-purchase/self-offer blocked app-side |
+| Buy flow | 🔶 | `confirmBuy()` inserts to `purchase` and marks item sold; server-side fee trigger written (migration `011`) but not yet confirmed deployed — still spoofable until verified live; no payment gateway. Self-purchase/self-offer blocked app-side |
 | Payment integration | ❌ | No Stripe/payment SDK; purchase is a direct DB insert |
 | Order history | ✅ | `OrderHistoryScreen` + `OrderHistoryViewModel`; shows item name, fee breakdown, total, date |
 | Make offer | ✅ | `submitOffer()` inserts to `item_offer` |
@@ -149,7 +149,7 @@ Only features whose status changed since the 2026-06-18 audit:
 | Messaging list | ✅ | `MessagesScreen` loads conversations from DB |
 | Chat | ✅ | `ChatScreen` with Supabase Realtime subscription |
 | Message attachments | ✅ | Gallery picker, full-screen send preview with optional caption, upload to `item-photos` under `chat/{dialogueId}/`, `dialogue_message_attachment` row; both sides see image via direct Postgrest lookup |
-| Message notifications | 🔶 | Local notifications via Realtime while foregrounded; no FCM background delivery |
+| Message notifications | 🔶 | Realtime notifications via `MessageListenerService` foreground service (works backgrounded/locked); no FCM = no killed-app delivery |
 | Notification settings | 🔶 | Prefs persist via SharedPreferences; no server-side preference sync |
 | Ratings & reviews | ❌ | `account_rating` + `rating` tables in schema; zero app code or UI |
 | Followers | ✅ | `AccountRepository.follow/unfollow/isFollowing()`; `ProfileViewModel` exposes `isFollowing` StateFlow with optimistic update + rollback; `SellerPublicProfileScreen` Follow button persists to DB |
@@ -166,8 +166,8 @@ Only features whose status changed since the 2026-06-18 audit:
 
 **Storage bucket issues (partially resolved):**
 - `item-photos` bucket: `file_size_limit = 5 MB`, `allowed_mime_types = [image/jpeg, image/png, image/webp]` — set by migration `008` ✅
-- Upload policy checks only `bucket_id = 'item-photos'`, not path prefix — any authenticated user can overwrite `items/<other_user_id>/photo_N.jpg` by guessing the path ❌ Open
-- Avatars share the `item-photos` bucket under `avatars/` prefix; no dedicated bucket ❌ Open
+- Upload policy now enforces per-prefix ownership (migration `009`): `items/<itemId>` requires owning the item, `avatars/<accountId>` requires being that account, `chat/<dialogueId>` requires dialogue participation ✅ Resolved
+- Avatars still share the `item-photos` bucket under `avatars/` prefix; no dedicated bucket 🔶 (cosmetic — path is now ownership-scoped)
 
 **Missing indexes on `purchase` table:** ✅ Resolved — migration `008` adds `idx_purchase_buyer` and `idx_purchase_seller`.
 
@@ -189,7 +189,7 @@ Only features whose status changed since the 2026-06-18 audit:
 
 2. ~~**`data/SupabaseConfig.kt`**~~ — ✅ Deleted (commit `e0d3893`).
 
-3. **`ItemDetailViewModel.kt:38-39`** — `SHIPPING_FEE` and `BUYER_PROTECTION_FEE` constants still client-side. Client sends fee values to DB — anyone can send $0 fees.
+3. **`ItemDetailViewModel.kt:38-39`** — `SHIPPING_FEE` and `BUYER_PROTECTION_FEE` constants still client-side. Migration `011_enforce_purchase_fees_serverside.sql` adds a trigger to overwrite fee values server-side, but it is **written, not yet confirmed applied** to the hosted project — do not treat as resolved until verified live.
 
 4. **`ItemDetailViewModel.kt:105`** — `memberSince = "-"` still hardcoded. `account.created_at` column added by migration `008`; app code not yet wired to display it (see Priority 4 `memberSince` item).
 
@@ -212,9 +212,9 @@ Only features whose status changed since the 2026-06-18 audit:
 | No RLS on 12 public tables | CRITICAL | ✅ Resolved | Migration `007` enables RLS and adds policies on all remaining tables |
 | RLS on `dialogue` + `dialogue_message` | HIGH | ✅ Resolved | Migration `003` — participant-scoped policies added |
 | RLS on `account_favorite` | MEDIUM | ✅ Resolved | Migration `006` — owner-scoped SELECT/INSERT/DELETE policies added |
-| Client-side fee calculation | HIGH | ❌ Open | `SHIPPING_FEE` and `BUYER_PROTECTION_FEE` constants in `ItemDetailViewModel.kt:38-39`; client sends fee values to DB |
+| Client-side fee calculation | HIGH | ⚠ Fix written, deployment unverified | Migration `011_enforce_purchase_fees_serverside.sql` — `BEFORE INSERT OR UPDATE` trigger on `public.purchase` recomputes `shipping_fee`/`protection_fee`/`total_amount` server-side. Written 2026-06-21, not yet confirmed live — run in the hosted SQL Editor and verify before trusting fee integrity |
 | `markAsSold()` no DB-level ownership check | HIGH | ✅ Resolved | `item_update_own` policy now enforced at DB level (migration 007 enabled RLS on `item`) |
-| `item-photos` upload path not restricted | HIGH | ❌ Open | Storage policy allows upload to any path; malicious user can overwrite other users' photos |
+| `item-photos` upload path not restricted | HIGH | ✅ Resolved (confirmed live 2026-06-21) | Migration `009_fix_item_photos_upload_scoping.sql` enforces per-prefix ownership (items/avatars/chat) in the upload `WITH CHECK` — re-verified against the hosted `pg_policies` after the user applied it; live policy now matches |
 | No file type/size limit on storage | MEDIUM | ✅ Resolved | Migration `008` sets 5 MB cap and jpeg/png/webp allow-list |
 | `SessionManager` in-memory only | MEDIUM | ✅ Resolved | `AccountPreferences` + `SplashViewModel` restore session on relaunch |
 | `SessionManager.currentAccountId` default `0` | MEDIUM | ✅ Resolved | Changed to `NO_ACCOUNT_ID = -1`; no longer maps to a valid account ID |
@@ -229,8 +229,8 @@ Only features whose status changed since the 2026-06-18 audit:
 ### Priority 1 — Blockers (cannot ship without)
 
 - [x] **Enable RLS on remaining 12 public tables** — migration `007_rls_remaining_tables.sql` applied; all tables protected with appropriate participant/owner-scoped policies ✅
-- [ ] **Move fee calculation server-side** — `ItemDetailViewModel.kt:38-39`, `PurchaseRepository.kt` — fees must be computed in a Supabase Edge Function or DB trigger; any client-supplied fee amount should be rejected
-- [ ] **Restrict storage upload path** — update `001_create_item_photos_bucket.sql` — `WITH CHECK` should enforce `(storage.foldername(name))[1] = auth.uid()::text`; same for `avatars/`
+- [ ] **Move fee calculation server-side** — migration `011_enforce_purchase_fees_serverside.sql` adds a DB trigger (`enforce_purchase_fees()`) on `public.purchase` that overwrites `shipping_fee`/`protection_fee`/`total_amount` server-side. Code/SQL written, **not yet confirmed run against the hosted project** — apply via SQL Editor and verify with `select tgname from pg_trigger where tgrelid = 'public.purchase'::regclass` before marking done
+- [x] **Restrict storage upload path** — migration `009_fix_item_photos_upload_scoping.sql` recreates the upload policy with per-prefix ownership scoping (`items/<itemId>` → item owner, `avatars/<accountId>` → that account, `chat/<dialogueId>` → dialogue participant) via `public.current_account_id()`, cast on the integer id segment. **Confirmed live on 2026-06-21** — `pg_policies.with_check` for `"item-photos: authenticated upload"` now matches the migration exactly ✅
 
 ### Priority 2 — Core Incomplete Features
 

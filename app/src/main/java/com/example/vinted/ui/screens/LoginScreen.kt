@@ -46,10 +46,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.vinted.ui.models.LoginUiState
 import com.example.vinted.ui.models.LoginViewModel
 import com.example.vinted.ui.theme.boxDivColor
-import com.example.vinted.ui.theme.headingColor
 import com.example.vinted.ui.theme.inputColor
 import com.example.vinted.ui.theme.instrumentSerifNormal
 import com.example.vinted.ui.theme.roundedInputShape
+import com.example.vinted.ui.theme.VinderAzure
 
 @Composable
 fun LoginScreen(
@@ -116,7 +116,7 @@ private fun LoginContent(
                 fontSize = 56.sp,
                 fontFamily = instrumentSerifNormal,
                 fontStyle = FontStyle.Italic,
-                color = headingColor,
+                color = VinderAzure,
 
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
@@ -198,7 +198,7 @@ private fun LoginContent(
                             checked = checked,
                             onCheckedChange = { checked = it },
                             colors = CheckboxDefaults.colors(
-                                checkedColor = headingColor,
+                                checkedColor = VinderAzure,
                                 checkmarkColor = Color.White,
                                 uncheckedColor = Color.Gray
                             )
@@ -228,7 +228,7 @@ private fun LoginContent(
                 },
                 enabled = uiState !is LoginUiState.Loading,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = headingColor
+                    containerColor = VinderAzure
                 ),
                 modifier = Modifier
                     .padding(top = 32.dp)
@@ -241,7 +241,7 @@ private fun LoginContent(
 
             if (uiState is LoginUiState.Loading) {
                 CircularProgressIndicator(
-                    color = headingColor,
+                    color = VinderAzure,
                     modifier = Modifier
                         .padding(top = 16.dp)
                         .size(28.dp)
@@ -263,7 +263,7 @@ private fun LoginContent(
             Text(
                 text = "Register",
                 fontSize = 18.sp,
-                color = headingColor,
+                color = VinderAzure,
                 modifier = Modifier
                     .padding(top = 16.dp)
                     .align(Alignment.CenterHorizontally)

@@ -56,6 +56,7 @@ import com.example.vinted.ui.theme.Grey57
 import com.example.vinted.ui.theme.Grey91
 import com.example.vinted.ui.theme.Grey97
 import com.example.vinted.ui.theme.VinderAzure
+import com.example.vinted.ui.theme.VinderError
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -217,7 +218,7 @@ private fun MyListingCard(
                     )
                 }
                 DropdownMenuItem(
-                    text = { Text("Delete", color = Color(0xFFD32F2F)) },
+                    text = { Text("Delete", color = VinderError) },
                     onClick = {
                         menuExpanded = false
                         showDeleteDialog = true
@@ -237,7 +238,7 @@ private fun MyListingCard(
                     showDeleteDialog = false
                     onDelete()
                 }) {
-                    Text("Delete", color = Color(0xFFD32F2F))
+                    Text("Delete", color = VinderError)
                 }
             },
             dismissButton = {

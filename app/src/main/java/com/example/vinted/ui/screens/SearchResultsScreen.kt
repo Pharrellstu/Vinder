@@ -15,7 +15,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -29,10 +28,9 @@ import com.example.vinted.ui.models.SearchFilters
 import com.example.vinted.ui.models.SearchResultsUiState
 import com.example.vinted.ui.models.SearchResultsViewModel
 import com.example.vinted.ui.theme.Grey57
+import com.example.vinted.ui.theme.Grey95
 import com.example.vinted.ui.theme.VinderAzure
 import com.example.vinted.ui.theme.VintedTheme
-
-private val screenBgColor = Color(0xFFF0F0F5)
 
 private fun matchesFilters(product: Product, filters: SearchFilters): Boolean {
     val categoryMatch = filters.categories.isEmpty() || product.category in filters.categories
@@ -102,7 +100,7 @@ fun SearchResultsScreen(
             }
         },
         bottomBar = { BottomNavBar(selectedIndex = 1, onItemSelected = onTabSelected) },
-        containerColor = screenBgColor,
+        containerColor = Grey95,
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             when (val state = uiState) {

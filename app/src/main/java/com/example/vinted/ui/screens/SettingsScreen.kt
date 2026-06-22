@@ -31,6 +31,7 @@ import com.example.vinted.ui.components.SettingsToggleRow
 import com.example.vinted.ui.models.SettingsViewModel
 import com.example.vinted.ui.theme.Grey11
 import com.example.vinted.ui.theme.Grey97
+import com.example.vinted.ui.theme.VinderError
 import com.example.vinted.ui.theme.VintedTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -162,7 +163,7 @@ private fun LogoutButton(
     ) {
         if (isLoading) {
             CircularProgressIndicator(
-                color = Color(0xFFE53935),
+                color = VinderError,
                 strokeWidth = 2.dp,
                 modifier = Modifier.size(18.dp),
             )
@@ -170,11 +171,11 @@ private fun LogoutButton(
             Icon(
                 imageVector = Icons.AutoMirrored.Outlined.Logout,
                 contentDescription = null,
-                tint = Color(0xFFE53935),
+                tint = VinderError,
                 modifier = Modifier.size(19.dp),
             )
             Spacer(modifier = Modifier.size(8.dp))
-            Text("Log out", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFFE53935))
+            Text("Log out", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = VinderError)
         }
     }
 }

@@ -16,14 +16,6 @@ private val VinderColorScheme = lightColorScheme(
     outline = Grey91,
 )
 
-private val LightColorScheme = lightColorScheme(
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    secondary = VinderAmber,
-    onSecondary = Grey11,
-)
-
 @Composable
 fun VintedTheme(content: @Composable () -> Unit) {
     MaterialTheme(

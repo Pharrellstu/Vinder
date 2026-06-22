@@ -1,0 +1,116 @@
+@startuml Vinder-UseCase
+' ─────────────────────────────────────────────────────────────
+' Vinder — Use Case Diagram (target product vision)
+' Two human actors: Visitor (not logged in) and User (registered).
+' A User is a logged-in Visitor, so it inherits all public use cases.
+' ─────────────────────────────────────────────────────────────
+
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+skinparam usecase {
+  BackgroundColor #F5F6F8
+  BorderColor #4E8098
+  ArrowColor #4E8098
+}
+
+' ---------- Human actors ----------
+actor "Visitor" as Visitor
+actor "User"    as User
+User --|> Visitor
+
+' ---------- System / secondary actors (external systems from the component diagram) ----------
+actor "Payment\nGateway"            as Pay
+actor "Push Notification\nService"  as Push
+actor "Device Camera\n& Gallery"    as Cam
+actor "Maps /\nLocation"            as Maps
+actor "Database"                    as DB
+
+' ---------- System boundary ----------
+rectangle "Vinder App" {
+
+  package "Authentication" {
+    usecase "Register account"      as UC_Reg
+    usecase "Log in"                as UC_Login
+    usecase "Verify account (2FA)"  as UC_2FA
+    usecase "Reset password"        as UC_Reset
+  }
+
+  package "Discovery & Search" {
+    usecase "Browse home feed"      as UC_Feed
+    usecase "Filter by category"    as UC_Cat
+    usecase "Search items"          as UC_Search
+    usecase "Filter & sort results" as UC_Filter
+    usecase "View item detail"      as UC_Item
+    usecase "Save to favourites"    as UC_Fav
+  }
+
+  package "Buying & Selling" {
+    usecase "Buy now"            as UC_Buy
+    usecase "Make an offer"      as UC_Offer
+    usecase "Complete checkout"  as UC_Checkout
+    usecase "Track order"        as UC_Order
+    usecase "Create listing"     as UC_Create
+    usecase "Upload photos"      as UC_Photo
+    usecase "Manage my listings" as UC_Manage
+  }
+
+  package "Messaging" {
+    usecase "View inbox"     as UC_Inbox
+    usecase "Filter unread"  as UC_Unread
+    usecase "Chat with user" as UC_Chat
+  }
+
+  package "Profile" {
+    usecase "View profile & stats" as UC_Profile
+    usecase "Edit profile"         as UC_Edit
+    usecase "Manage settings"      as UC_Settings
+  }
+}
+
+' ---------- Visitor: public, no account needed ----------
+Visitor --> UC_Reg
+Visitor --> UC_Login
+Visitor --> UC_Feed
+Visitor --> UC_Search
+Visitor --> UC_Item
+
+' ---------- User: everything that needs an account ----------
+' (also inherits all Visitor use cases via the generalisation)
+User --> UC_Reset
+User --> UC_Fav
+User --> UC_Buy
+User --> UC_Offer
+User --> UC_Order
+User --> UC_Create
+User --> UC_Manage
+User --> UC_Inbox
+User --> UC_Chat
+User --> UC_Profile
+User --> UC_Edit
+User --> UC_Settings
+
+' ---------- include / extend ----------
+UC_Login  ..> UC_2FA      : <<include>>
+UC_Reg    ..> UC_2FA      : <<include>>
+UC_Buy    ..> UC_Checkout : <<include>>
+UC_Create ..> UC_Photo    : <<include>>
+UC_Cat    ..> UC_Feed     : <<extend>>
+UC_Filter ..> UC_Search   : <<extend>>
+UC_Unread ..> UC_Inbox    : <<extend>>
+
+' ---------- system-actor links ----------
+UC_Checkout --> Pay
+UC_Photo    --> Cam
+UC_Chat     --> Push
+UC_Feed     --> Maps
+UC_Item     --> Maps
+
+' Database persists the core entities: accounts, listings, orders, conversations
+UC_Reg      --> DB
+UC_Create   --> DB
+UC_Checkout --> DB
+UC_Chat     --> DB
+
+@enduml

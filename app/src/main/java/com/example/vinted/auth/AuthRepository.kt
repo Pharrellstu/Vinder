@@ -8,9 +8,12 @@ import com.example.vinted.ui.initialisers.SupabaseClientInitialiser
 import io.github.jan.supabase.auth.OtpType
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.user.UserSession
 import io.github.jan.supabase.exceptions.RestException
 import io.github.jan.supabase.postgrest.from
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
@@ -24,6 +27,11 @@ interface IAuthRepository {
     suspend fun verifyPasswordResetOtp(email: String, token: String): Result<Unit>
     suspend fun updatePassword(newPassword: String): Result<Unit>
     fun currentSession(): UserSession?
+
+    /** Waits for the SDK's session bootstrap to settle, or null if it doesn't within [timeoutMillis]. */
+    suspend fun awaitResolvedSessionStatus(timeoutMillis: Long): SessionStatus?
+
+    suspend fun findAccountByEmail(email: String): AccountEntity?
 }
 
 open class AuthRepository : IAuthRepository {
@@ -105,6 +113,16 @@ open class AuthRepository : IAuthRepository {
 
     override fun currentSession(): UserSession? =
         supabase.auth.currentSessionOrNull()
+
+    override suspend fun awaitResolvedSessionStatus(timeoutMillis: Long): SessionStatus? =
+        withTimeoutOrNull(timeoutMillis) {
+            supabase.auth.sessionStatus.first { it !is SessionStatus.Initializing }
+        }
+
+    override suspend fun findAccountByEmail(email: String): AccountEntity? =
+        supabase.from("account")
+            .select { filter { eq("account_email", email) } }
+            .decodeSingleOrNull<AccountEntity>()
 
     private fun <T> Result<T>.logError(op: String): Result<T> = onFailure { e ->
         when (e) {

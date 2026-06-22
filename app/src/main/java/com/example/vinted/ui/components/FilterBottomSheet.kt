@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import com.example.vinted.ui.models.SearchFilters
 import com.example.vinted.ui.theme.Grey11
 import com.example.vinted.ui.theme.Grey57
+import com.example.vinted.ui.theme.Grey82
 import com.example.vinted.ui.theme.Grey91
 import com.example.vinted.ui.theme.VinderAzure
 
@@ -89,7 +90,7 @@ private fun DragHandle() {
                 .width(60.dp)
                 .height(4.dp)
                 .clip(RoundedCornerShape(2.dp))
-                .background(Color(0xFFD1D1D6)),
+                .background(Grey82),
         )
     }
 }

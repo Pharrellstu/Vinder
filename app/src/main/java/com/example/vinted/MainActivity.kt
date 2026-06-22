@@ -1,10 +1,14 @@
 package com.example.vinted
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.util.Log
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -28,7 +32,7 @@ import com.example.vinted.ui.models.SplashViewModel
 import com.example.vinted.data.DialogueRepository
 import com.example.vinted.data.InboxBadge
 import com.example.vinted.data.SessionManager
-import com.example.vinted.notifications.MessageNotificationController
+import com.example.vinted.notifications.MessageListenerService
 import com.example.vinted.notifications.VinderNotifications
 import com.example.vinted.ui.models.Conversation
 import com.example.vinted.ui.models.Product
@@ -54,6 +58,8 @@ import com.example.vinted.ui.screens.WishlistScreen
 import com.example.vinted.ui.theme.VintedTheme
 import com.example.vinted.util.ErrorMessages
 
+private const val KEY_BATTERY_OPT_ASKED = "battery_opt_asked"
+
 class MainActivity : ComponentActivity() {
     private val splashViewModel: SplashViewModel by viewModels()
 
@@ -77,6 +83,25 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        // The message listener relies on a foreground service holding a Realtime socket open.
+        // Doze freezes that socket unless the app is exempt from battery optimization, so prompt
+        // once. The "asked" flag keeps us from nagging on every launch if the user declines.
+        val batteryPrefs = getSharedPreferences("vinder_battery_opt", MODE_PRIVATE)
+        val requestBatteryExemption: () -> Unit = {
+            val powerManager = getSystemService(PowerManager::class.java)
+            val exempt = powerManager?.isIgnoringBatteryOptimizations(packageName) == true
+            if (!exempt && !batteryPrefs.getBoolean(KEY_BATTERY_OPT_ASKED, false)) {
+                batteryPrefs.edit().putBoolean(KEY_BATTERY_OPT_ASKED, true).apply()
+                runCatching {
+                    startActivity(
+                        Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                            data = Uri.parse("package:$packageName")
+                        }
+                    )
+                }
+            }
+        }
+
         splashScreen.setKeepOnScreenCondition { splashViewModel.state is SplashState.Loading }
         enableEdgeToEdge()
         setContent {
@@ -84,6 +109,7 @@ class MainActivity : ComponentActivity() {
                 VinderApp(
                     splashViewModel = splashViewModel,
                     onRequestNotificationPermission = requestNotificationPermission,
+                    onRequestBatteryExemption = requestBatteryExemption,
                 )
             }
         }
@@ -101,6 +127,7 @@ private enum class AuthScreen {
 fun VinderApp(
     splashViewModel: SplashViewModel = viewModel(),
     onRequestNotificationPermission: () -> Unit = {},
+    onRequestBatteryExemption: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val splashState = splashViewModel.state
@@ -129,10 +156,11 @@ fun VinderApp(
         AuthScreen.HOME -> {
             LaunchedEffect(Unit) {
                 onRequestNotificationPermission()
-                MessageNotificationController.start(context)
+                onRequestBatteryExemption()
+                MessageListenerService.start(context)
             }
             MainTabs(onLoggedOut = {
-                MessageNotificationController.stop()
+                MessageListenerService.stop(context)
                 authScreen = AuthScreen.LOGIN
             })
         }
@@ -310,7 +338,7 @@ private fun MainTabs(onLoggedOut: () -> Unit) {
             onTabSelected = onTabSelected,
             onProductClick = { openProduct = it },
         )
-        3 -> MessagesScreen(onTabSelected = onTabSelected)
+        3 -> MessagesScreen(onBack = { onTabSelected(0) }, onTabSelected = onTabSelected)
         4 -> key(profileReloadToken) {
             ProfileScreen(
                 onTabSelected = onTabSelected,

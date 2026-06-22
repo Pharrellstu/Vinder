@@ -15,9 +15,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.vinted.ui.theme.Grey36
+import com.example.vinted.ui.theme.Grey82
 import com.example.vinted.ui.theme.VinderAzure
 
-private val unselectedBorder = Color(0xFFD1D1D6)
 private val pillShape = RoundedCornerShape(999.dp)
 
 @Composable
@@ -29,7 +29,7 @@ fun FilterPillChip(
 ) {
     val bg = if (selected) VinderAzure else Color.White
     val textColor = if (selected) Color.White else Grey36
-    val borderColor = if (selected) VinderAzure else unselectedBorder
+    val borderColor = if (selected) VinderAzure else Grey82
     Box(
         modifier = modifier
             .clip(pillShape)

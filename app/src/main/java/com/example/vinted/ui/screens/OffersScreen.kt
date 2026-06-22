@@ -53,7 +53,15 @@ import com.example.vinted.ui.theme.Grey11
 import com.example.vinted.ui.theme.Grey57
 import com.example.vinted.ui.theme.Grey91
 import com.example.vinted.ui.theme.Grey97
+import com.example.vinted.ui.theme.StatusAcceptedBg
+import com.example.vinted.ui.theme.StatusAcceptedText
+import com.example.vinted.ui.theme.StatusCancelledBg
+import com.example.vinted.ui.theme.StatusPendingBg
+import com.example.vinted.ui.theme.StatusPendingText
+import com.example.vinted.ui.theme.StatusRejectedBg
+import com.example.vinted.ui.theme.StatusRejectedText
 import com.example.vinted.ui.theme.VinderAzure
+import com.example.vinted.ui.theme.VinderGreen
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
@@ -228,7 +236,7 @@ private fun OfferCard(
                 Button(
                     onClick = onAccept,
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                    colors = ButtonDefaults.buttonColors(containerColor = VinderGreen),
                 ) {
                     Text("Accept", fontSize = 14.sp, color = Color.White)
                 }
@@ -240,10 +248,10 @@ private fun OfferCard(
 @Composable
 private fun StatusBadge(statusId: Int) {
     val (label, bgColor, textColor) = when (statusId) {
-        OFFER_STATUS_PENDING -> Triple("Pending", Color(0xFFFFF8E1), Color(0xFFF57F17))
-        OFFER_STATUS_ACCEPTED -> Triple("Accepted", Color(0xFFE8F5E9), Color(0xFF2E7D32))
-        OFFER_STATUS_REJECTED -> Triple("Rejected", Color(0xFFFFEBEE), Color(0xFFC62828))
-        else -> Triple("Cancelled", Color(0xFFF5F5F5), Grey57)
+        OFFER_STATUS_PENDING -> Triple("Pending", StatusPendingBg, StatusPendingText)
+        OFFER_STATUS_ACCEPTED -> Triple("Accepted", StatusAcceptedBg, StatusAcceptedText)
+        OFFER_STATUS_REJECTED -> Triple("Rejected", StatusRejectedBg, StatusRejectedText)
+        else -> Triple("Cancelled", StatusCancelledBg, Grey57)
     }
     Box(
         modifier = Modifier

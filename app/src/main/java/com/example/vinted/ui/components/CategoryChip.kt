@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.sp
 import com.example.vinted.ui.theme.Grey11
 import com.example.vinted.ui.theme.Grey95
 import com.example.vinted.ui.theme.VinderAzure
+import com.example.vinted.ui.theme.inter
 
 private val chipShape = RoundedCornerShape(999.dp)
 
@@ -32,7 +33,8 @@ fun CategoryChip(
         text = label,
         color = textColor,
         fontSize = 13.sp,
-        fontWeight = FontWeight.Bold,
+        fontFamily = inter,
+        fontWeight = FontWeight.SemiBold,
         modifier = modifier
             .clip(chipShape)
             .background(backgroundColor)

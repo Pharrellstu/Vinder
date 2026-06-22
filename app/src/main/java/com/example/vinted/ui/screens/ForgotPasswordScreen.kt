@@ -58,11 +58,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.vinted.ui.models.ForgotPasswordState
 import com.example.vinted.ui.models.ForgotPasswordViewModel
 import com.example.vinted.ui.theme.boxDivColor
-import com.example.vinted.ui.theme.headingColor
 import com.example.vinted.ui.theme.inputColor
 import com.example.vinted.ui.theme.instrumentSerifNormal
 import com.example.vinted.ui.theme.inter
 import com.example.vinted.ui.theme.roundedInputShape
+import com.example.vinted.ui.theme.VinderAzure
 
 private const val PASSWORD_MASK = '•'
 
@@ -149,7 +149,7 @@ private fun VinderLogo(onClick: () -> Unit) {
         lineHeight = 56.sp,
         fontFamily = instrumentSerifNormal,
         fontStyle = FontStyle.Italic,
-        color = headingColor,
+        color = VinderAzure,
         style = TextStyle(
             platformStyle = PlatformTextStyle(includeFontPadding = false),
             lineHeightStyle = LineHeightStyle(
@@ -174,7 +174,7 @@ private fun EmailStep(
         fontSize = 20.sp,
         fontFamily = inter,
         fontStyle = FontStyle.Italic,
-        color = headingColor
+        color = VinderAzure
     )
 
     Text(
@@ -214,7 +214,7 @@ private fun EmailStep(
     Button(
         onClick = { onSend(emailState.text.toString()) },
         enabled = !isLoading,
-        colors = ButtonDefaults.buttonColors(containerColor = headingColor),
+        colors = ButtonDefaults.buttonColors(containerColor = VinderAzure),
         modifier = Modifier
             .padding(top = 24.dp)
             .width(170.dp)
@@ -241,7 +241,7 @@ private fun OtpStep(
         fontSize = 20.sp,
         fontFamily = inter,
         fontStyle = FontStyle.Italic,
-        color = headingColor,
+        color = VinderAzure,
         modifier = Modifier.padding(top = 8.dp)
     )
 
@@ -265,7 +265,7 @@ private fun OtpStep(
     Button(
         onClick = { onVerify(otpText) },
         enabled = !isLoading && otpText.length == ForgotPasswordViewModel.OTP_LENGTH,
-        colors = ButtonDefaults.buttonColors(containerColor = headingColor),
+        colors = ButtonDefaults.buttonColors(containerColor = VinderAzure),
         modifier = Modifier
             .padding(top = 24.dp)
             .width(170.dp)
@@ -293,7 +293,7 @@ private fun NewPasswordStep(
         fontSize = 20.sp,
         fontFamily = inter,
         fontStyle = FontStyle.Italic,
-        color = headingColor,
+        color = VinderAzure,
         modifier = Modifier.padding(top = 8.dp)
     )
 
@@ -331,7 +331,7 @@ private fun NewPasswordStep(
             )
         },
         enabled = !isLoading,
-        colors = ButtonDefaults.buttonColors(containerColor = headingColor),
+        colors = ButtonDefaults.buttonColors(containerColor = VinderAzure),
         modifier = Modifier
             .padding(top = 24.dp)
             .width(170.dp)
@@ -348,7 +348,7 @@ private fun SuccessStep(onNavigateToLogin: () -> Unit) {
     Icon(
         imageVector = Icons.Default.CheckCircle,
         contentDescription = null,
-        tint = headingColor,
+        tint = VinderAzure,
         modifier = Modifier
             .padding(top = 24.dp)
             .size(48.dp)
@@ -358,7 +358,7 @@ private fun SuccessStep(onNavigateToLogin: () -> Unit) {
         text = "Password updated!",
         fontSize = 16.sp,
         fontFamily = inter,
-        color = headingColor,
+        color = VinderAzure,
         modifier = Modifier.padding(top = 16.dp)
     )
 
@@ -375,7 +375,7 @@ private fun SuccessStep(onNavigateToLogin: () -> Unit) {
     Text(
         text = "Back to Login",
         fontSize = 16.sp,
-        color = headingColor,
+        color = VinderAzure,
         modifier = Modifier
             .padding(top = 32.dp)
             .clickable { onNavigateToLogin() }
@@ -421,7 +421,7 @@ private fun OtpInputRow(
                         .background(inputColor, RoundedCornerShape(8.dp))
                         .border(
                             width = if (isCurrent) 1.5.dp else 1.dp,
-                            color = if (isCurrent) headingColor else Color.Black.copy(alpha = 0.15f),
+                            color = if (isCurrent) VinderAzure else Color.Black.copy(alpha = 0.15f),
                             shape = RoundedCornerShape(8.dp)
                         )
                         .clickable { focusRequester.requestFocus() },
@@ -492,7 +492,7 @@ private fun PasswordField(
 private fun StepFooter(isLoading: Boolean, error: String?) {
     if (isLoading) {
         CircularProgressIndicator(
-            color = headingColor,
+            color = VinderAzure,
             modifier = Modifier
                 .padding(top = 16.dp)
                 .size(24.dp)

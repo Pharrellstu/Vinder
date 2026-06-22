@@ -37,13 +37,6 @@ CREATE TABLE IF NOT EXISTS account_side_information (
     UNIQUE (account_id)
 );
 
-CREATE TABLE IF NOT EXISTS account_authentication (
-    account_authentication_id SERIAL PRIMARY KEY,
-    account_id                INT          NOT NULL REFERENCES account (account_id) ON DELETE CASCADE,
-    hashed_code               VARCHAR(255) NOT NULL,
-    expiration_date           TIMESTAMPTZ  NOT NULL
-);
-
 CREATE TABLE IF NOT EXISTS account_following (
     account_following_id SERIAL PRIMARY KEY,
     follower_id          INT NOT NULL REFERENCES account (account_id) ON DELETE CASCADE,

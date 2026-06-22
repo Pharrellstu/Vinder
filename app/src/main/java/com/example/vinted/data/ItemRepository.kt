@@ -178,9 +178,13 @@ class ItemRepository : IItemRepository {
     }
 
     override suspend fun getItemPhotos(itemId: Int): List<String> {
+        // Sort by item_photo_id so the gallery order matches upload order (the create
+        // flow uploads photo_0 first), keeping the cover photo at index 0. Postgrest
+        // does not guarantee row order without an explicit sort.
         return client.from("item_photo")
             .select { filter { eq("item_id", itemId) } }
             .decodeList<ItemPhotoEntity>()
+            .sortedBy { it.itemPhotoId }
             .map { it.photoUrl }
     }
 
@@ -303,7 +307,7 @@ class ItemRepository : IItemRepository {
             .decodeList<ItemEntity>()
         if (items.isEmpty()) return emptyList()
 
-        val coverUrlByItem = coverUrlsByItem(items.map { it.itemId })
+        val coverUrlByItem = client.coverUrlsByItem(items.map { it.itemId })
         // Newest first so a just-posted item appears at the top.
         return items.sortedByDescending { it.itemId }.map { item ->
             MyListing(
@@ -408,7 +412,7 @@ class ItemRepository : IItemRepository {
             .decodeList<ItemConditionEntity>()
             .associateBy({ it.conditionId }, { it.name })
 
-        val coverUrlByItem = coverUrlsByItem(items.map { it.itemId })
+        val coverUrlByItem = client.coverUrlsByItem(items.map { it.itemId })
 
         return items.map { item ->
             val seller = sellerMap[item.sellerId]
@@ -434,15 +438,5 @@ class ItemRepository : IItemRepository {
                 coverImageUrl = coverUrlByItem[item.itemId],
             )
         }
-    }
-
-    /** Cover photo per item = the first uploaded photo (lowest item_photo_id). */
-    private suspend fun coverUrlsByItem(itemIds: List<Int>): Map<Int, String> {
-        if (itemIds.isEmpty()) return emptyMap()
-        return client.from("item_photo")
-            .select { filter { isIn("item_id", itemIds) } }
-            .decodeList<ItemPhotoEntity>()
-            .groupBy { it.itemId }
-            .mapValues { (_, photos) -> photos.minByOrNull { it.itemPhotoId }!!.photoUrl }
     }
 }
