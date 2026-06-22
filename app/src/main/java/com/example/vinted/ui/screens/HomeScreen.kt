@@ -210,29 +210,6 @@ private fun VinderTopBar(onNotificationsClick: () -> Unit = {}) {
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
-    OutlinedTextField(
-        value = query,
-        onValueChange = onQueryChange,
-        singleLine = true,
-        placeholder = { Text("Search items", color = Grey57) },
-        leadingIcon = {
-            Icon(Icons.Outlined.Search, contentDescription = null, tint = Grey57)
-        },
-        shape = RoundedCornerShape(percent = 50),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = VinderAzure,
-            focusedLeadingIconColor = VinderAzure,
-            cursorColor = VinderAzure,
-        ),
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(SurfaceColor)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-    )
-}
 
 @Composable
 private fun CategoryFilterRow(
