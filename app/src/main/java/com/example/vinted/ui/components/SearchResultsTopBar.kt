@@ -87,7 +87,7 @@ private fun SearchPill(
             tint = Grey57,
             modifier = Modifier.size(14.dp),
         )
-        Box(modifier = Modifier.weight(1f)) {
+        Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
             if (query.isEmpty()) {
                 Text(text = "Search items", fontSize = 12.sp, color = Grey57)
             }
