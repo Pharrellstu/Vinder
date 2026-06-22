@@ -214,8 +214,8 @@ class DialogueRepository : IDialogueRepository {
             ?: try {
                 client.from("dialogue").insert(
                     buildJsonObject {
-                        put("dialogue_creator_id", creatorId)
-                        put("dialogue_receiver_id", receiverId)
+                        put("dialogue_creator_id", accountId)
+                        put("dialogue_receiver_id", otherAccountId)
                     }
                 ) { select() }.decodeSingle<DialogueEntity>()
             } catch (_: Exception) {
@@ -223,8 +223,16 @@ class DialogueRepository : IDialogueRepository {
                 client.from("dialogue")
                     .select {
                         filter {
-                            eq("dialogue_creator_id", creatorId)
-                            eq("dialogue_receiver_id", receiverId)
+                            or {
+                                and {
+                                    eq("dialogue_creator_id", accountId)
+                                    eq("dialogue_receiver_id", otherAccountId)
+                                }
+                                and {
+                                    eq("dialogue_creator_id", otherAccountId)
+                                    eq("dialogue_receiver_id", accountId)
+                                }
+                            }
                         }
                     }
                     .decodeList<DialogueEntity>()
