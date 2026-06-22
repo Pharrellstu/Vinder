@@ -79,13 +79,13 @@ App is now Supabase-hosted on the web, not the local Docker stack this document 
 | 11 | `SessionManager.currentAccountId` default was `0` | 🟡 Medium | ✅ Resolved | Changed to `NO_ACCOUNT_ID = -1`; `isLoggedIn()` guard added; `confirmBuy()`/`submitOffer()` pass through `SessionManager.currentAccountId` which is now `-1` (not `0`) when unset — still no null-guard in call sites but sentinel is no longer a valid account ID |
 | 12 | Dead files `ChatRepository.kt`, `SupabaseConfig.kt` | ❌ Open | ✅ Resolved | Both files deleted; commit `e0d3893` |
 | 13 | Missing indexes on `purchase(buyer_id, seller_id)` | ❌ Open | ✅ Resolved | Migration `008` adds `idx_purchase_buyer` + `idx_purchase_seller` |
-| 14 | Push notifications — no FCM / background delivery | ❌ Missing | ✅ Resolved (code) | FCM fully wired: `VinderFirebaseMessagingService`, `PushTokenRegistrar`, `DevicePushTokenRepository`, manifest service, Firebase BoM in Gradle; token table migration `010_create_device_push_token.sql`; server send path `supabase/functions/send-push-notification/index.ts`. Build stays green without `google-services.json` (plugin applied conditionally). Requires manual Firebase provisioning to fire — see `docs/PUSH_NOTIFICATIONS_SETUP.md` |
+| 14 | Push notifications — no FCM / background delivery | ❌ Missing | 🔶 Partial | `MessageNotificationController` + `VinderNotifications` deliver local notifications via Supabase Realtime while app is foregrounded; no FCM = no delivery when app is killed |
 
 ---
 
 ### New Issues Found
 
-| # | Area | Severity | Description | File:Line |
+| # | Area | Sev[local.properties.example](local.properties.example)erity | Description | File:Line |
 |---|------|----------|-------------|-----------|
 | N1 | Notifications | Low | ✅ Resolved | `NotificationPreferences.init()` moved to `VinderApplication.onCreate()`; commit `e0d3893` | `VinderApplication.kt` |
 | N2 | Chat notifications | Low | ✅ Resolved | `senderNameCache` added to `MessageNotificationController`; sender name Postgrest query now fires at most once per sender per session; commit `e0d3893` | `MessageNotificationController.kt` |
@@ -149,7 +149,7 @@ Only features whose status changed since the 2026-06-18 audit:
 | Messaging list | ✅ | `MessagesScreen` loads conversations from DB |
 | Chat | ✅ | `ChatScreen` with Supabase Realtime subscription |
 | Message attachments | ✅ | Gallery picker, full-screen send preview with optional caption, upload to `item-photos` under `chat/{dialogueId}/`, `dialogue_message_attachment` row; both sides see image via direct Postgrest lookup |
-| Message notifications | 🔶 | Foreground-only via Realtime (`MessageNotificationController`); no background/killed-app delivery. FCM push implementation was built then removed (2026-06-21) — see git history on this branch if revisiting |
+| Message notifications | 🔶 | Local notifications via Realtime while foregrounded; no FCM background delivery |
 | Notification settings | 🔶 | Prefs persist via SharedPreferences; no server-side preference sync |
 | Ratings & reviews | ❌ | `account_rating` + `rating` tables in schema; zero app code or UI |
 | Followers | ✅ | `AccountRepository.follow/unfollow/isFollowing()`; `ProfileViewModel` exposes `isFollowing` StateFlow with optimistic update + rollback; `SellerPublicProfileScreen` Follow button persists to DB |
@@ -238,7 +238,7 @@ Only features whose status changed since the 2026-06-18 audit:
 - [x] **Wishlist/favorites** — `account_favorite`-backed; heart button on `GridProductCard` and `ItemDetailScreen` toggles persisted state; `WishlistScreen` reachable from `ProfileScreen`; RLS migration 006 — **M** ✅
 - [x] **Follower follow/unfollow action** — `AccountRepository.follow/unfollow/isFollowing()`; `ProfileViewModel` with optimistic update + rollback; `SellerPublicProfileScreen` wired — **S** ✅
 - [x] **Server-side search** — `IItemRepository.getFeedItems(searchQuery)` applies `ilike("item_name", "%query%")` in Postgrest; `SearchResultsViewModel` calls on every keystroke; tapping result navigates to `ItemDetailScreen` — **L** ✅
-- [ ] **Push notifications (FCM)** — built (`VinderFirebaseMessagingService` + `PushTokenRegistrar` + `DevicePushTokenRepository` + migration `010` + Firebase Gradle wiring), then deliberately removed on 2026-06-21 at user request. Foreground Realtime delivery (`MessageNotificationController`) remains; background/killed-app push delivery is not implemented — **L**
+- [ ] **Push notifications (FCM)** — integrate `firebase-messaging`; store FCM token in `account_side_information` or new table; Edge Function to send on message/offer/sale events — **L**
 - [ ] **Notification settings sync** — write per-user preferences to Supabase rather than local SharedPreferences only; required for multi-device support — **S**
 
 ### Priority 3 — Quality & Security Fixes
