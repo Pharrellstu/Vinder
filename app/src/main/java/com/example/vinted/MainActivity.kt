@@ -237,7 +237,10 @@ private fun MainTabs(onLoggedOut: () -> Unit) {
         BackHandler { showWishlist = false }
         WishlistScreen(
             onBack = { showWishlist = false },
-            onProductClick = { openProduct = it },
+            onProductClick = {
+                showWishlist = false
+                openProduct = it
+            },
         )
         return
     }
