@@ -1,4 +1,5 @@
 package com.example.vinted.ui.screens
+import com.example.vinted.ui.theme.SurfaceColor
 
 import android.Manifest
 import android.content.Context
@@ -174,7 +175,7 @@ fun AddProductScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceColor),
             )
         },
         containerColor = Grey97,
@@ -262,7 +263,7 @@ private fun StepProgressIndicator(currentStep: Int) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White)
+            .background(SurfaceColor)
             .padding(horizontal = 24.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -396,7 +397,7 @@ private fun PhotosStep(
             dismissButton = {
                 TextButton(onClick = { showSourceDialog = false }) { Text("Cancel") }
             },
-            containerColor = Color.White,
+            containerColor = SurfaceColor,
             shape = RoundedCornerShape(16.dp),
         )
     }
@@ -494,7 +495,7 @@ private fun AddPhotoTile(onClick: () -> Unit) {
             .aspectRatio(1f)
             .clip(RoundedCornerShape(10.dp))
             .border(BorderStroke(1.5.dp, Grey91), RoundedCornerShape(10.dp))
-            .background(Color.White)
+            .background(SurfaceColor)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -656,7 +657,7 @@ private fun ConfirmationStep(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(14.dp))
-                .background(Color.White)
+                .background(SurfaceColor)
                 .padding(16.dp),
         ) {
             Column {
@@ -751,8 +752,8 @@ private fun VinderTextField(
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = VinderAzure,
             unfocusedBorderColor = Grey91,
-            focusedContainerColor = Color.White,
-            unfocusedContainerColor = Color.White,
+            focusedContainerColor = SurfaceColor,
+            unfocusedContainerColor = SurfaceColor,
         ),
         modifier = Modifier.fillMaxWidth(),
     )
@@ -767,7 +768,7 @@ private fun SelectableChip(label: String, selected: Boolean, onSelect: () -> Uni
         colors = FilterChipDefaults.filterChipColors(
             selectedContainerColor = VinderAzureLight,
             selectedLabelColor = VinderAzure,
-            containerColor = Color.White,
+            containerColor = SurfaceColor,
             labelColor = Grey11,
         ),
         border = FilterChipDefaults.filterChipBorder(

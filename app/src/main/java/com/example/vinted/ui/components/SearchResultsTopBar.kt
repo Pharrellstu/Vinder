@@ -1,4 +1,5 @@
 package com.example.vinted.ui.components
+import com.example.vinted.ui.theme.SurfaceColor
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -60,7 +61,7 @@ fun SearchResultsTopBar(
                 modifier = Modifier.fillMaxWidth(),
             )
         },
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceColor),
     )
 }
 

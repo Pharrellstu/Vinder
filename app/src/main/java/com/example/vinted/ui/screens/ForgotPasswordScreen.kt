@@ -1,4 +1,6 @@
 package com.example.vinted.ui.screens
+import com.example.vinted.ui.theme.Grey11
+import com.example.vinted.ui.theme.SurfaceColor
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -93,7 +95,7 @@ private fun ForgotPasswordContent(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White),
+            .background(SurfaceColor),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -180,7 +182,7 @@ private fun EmailStep(
     Text(
         text = "Enter your email and we will send you a one-time code.",
         fontSize = 12.sp,
-        color = Color.Black,
+        color = Grey11,
         textAlign = TextAlign.Center,
         modifier = Modifier
             .padding(top = 12.dp)
@@ -190,7 +192,7 @@ private fun EmailStep(
     BasicTextField(
         state = emailState,
         lineLimits = TextFieldLineLimits.SingleLine,
-        textStyle = TextStyle(fontSize = 16.sp, color = Color.Black),
+        textStyle = TextStyle(fontSize = 16.sp, color = Grey11),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
         modifier = Modifier
             .padding(top = 18.dp)
@@ -248,7 +250,7 @@ private fun OtpStep(
     Text(
         text = "We sent a 6-digit code to $email",
         fontSize = 12.sp,
-        color = Color.Black,
+        color = Grey11,
         textAlign = TextAlign.Center,
         modifier = Modifier
             .padding(top = 12.dp)
@@ -300,7 +302,7 @@ private fun NewPasswordStep(
     Text(
         text = "Choose a strong new password.",
         fontSize = 12.sp,
-        color = Color.Black,
+        color = Grey11,
         textAlign = TextAlign.Center,
         modifier = Modifier
             .padding(top = 12.dp)
@@ -365,7 +367,7 @@ private fun SuccessStep(onNavigateToLogin: () -> Unit) {
     Text(
         text = "You can now sign in with your new password.",
         fontSize = 12.sp,
-        color = Color.Black,
+        color = Grey11,
         textAlign = TextAlign.Center,
         modifier = Modifier
             .padding(top = 8.dp)
@@ -430,7 +432,7 @@ private fun OtpInputRow(
                     Text(
                         text = otpText.getOrNull(index)?.toString() ?: "",
                         fontSize = 20.sp,
-                        color = Color.Black
+                        color = Grey11
                     )
                 }
             }
@@ -451,7 +453,7 @@ private fun PasswordField(
     BasicTextField(
         state = state,
         lineLimits = TextFieldLineLimits.SingleLine,
-        textStyle = TextStyle(fontSize = 16.sp, color = Color.Black),
+        textStyle = TextStyle(fontSize = 16.sp, color = Grey11),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         outputTransformation = if (!visible) {
             { replace(0, length, PASSWORD_MASK.toString().repeat(length)) }

@@ -1,4 +1,6 @@
 package com.example.vinted.ui.screens
+import com.example.vinted.ui.theme.Grey11
+import com.example.vinted.ui.theme.SurfaceColor
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -85,7 +87,7 @@ private fun RegisterContent(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White),
+            .background(SurfaceColor),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -202,7 +204,7 @@ private fun RegisterContent(
                     Text(
                         text = "Already have an account? ",
                         fontSize = 16.sp,
-                        color = Color.Black
+                        color = Grey11
                     )
                     Text(
                         text = "Log In",
@@ -259,7 +261,7 @@ private fun InputField(
 ) {
     BasicTextField(
         state = state,
-        textStyle = TextStyle(fontSize = 18.sp, color = Color.Black),
+        textStyle = TextStyle(fontSize = 18.sp, color = Grey11),
         outputTransformation = if (masked) {
             { replace(0, length, PASSWORD_MASK.toString().repeat(length)) }
         } else {
@@ -277,7 +279,7 @@ private fun InputField(
                 contentAlignment = Alignment.CenterStart
             ) {
                 if (state.text.isEmpty()) {
-                    Text(text = placeholder, color = Color.Black, fontSize = 14.sp)
+                    Text(text = placeholder, color = Grey11, fontSize = 14.sp)
                 }
                 innerTextField()
             }
@@ -296,7 +298,7 @@ private fun PasswordStrengthBar(
         Text(
             text = "Password strength",
             fontSize = 12.sp,
-            color = Color.Black
+            color = Grey11
         )
         Box(
             modifier = Modifier

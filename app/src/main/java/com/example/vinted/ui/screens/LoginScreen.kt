@@ -1,4 +1,6 @@
 package com.example.vinted.ui.screens
+import com.example.vinted.ui.theme.Grey11
+import com.example.vinted.ui.theme.SurfaceColor
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -91,7 +93,7 @@ private fun LoginContent(
 
     Box(
         modifier = Modifier.fillMaxSize()
-            .background(Color.White),
+            .background(SurfaceColor),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -126,7 +128,7 @@ private fun LoginContent(
                 state = textFieldState,
                 textStyle = TextStyle(
                     fontSize = 20.sp,
-                    color = Color.Black
+                    color = Grey11
                 ),
                 modifier = Modifier
                     .padding(top = 20.dp)
@@ -143,7 +145,7 @@ private fun LoginContent(
                         if (textFieldState.text.isEmpty()) {
                             Text(
                                 text = "Email",
-                                color = Color.Black,
+                                color = Grey11,
                                 fontSize = 16.sp
                             )
                         }
@@ -173,7 +175,7 @@ private fun LoginContent(
                         if(passwordFieldState.text.isEmpty()) {
                             Text(
                                 text = "Password",
-                                color = Color.Black,
+                                color = Grey11,
                                 fontSize = 16.sp
                             )
                         }

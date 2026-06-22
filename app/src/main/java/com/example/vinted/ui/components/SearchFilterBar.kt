@@ -1,4 +1,5 @@
 package com.example.vinted.ui.components
+import com.example.vinted.ui.theme.SurfaceColor
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -31,7 +32,7 @@ fun SearchFilterBar(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(Color.White)
+            .background(SurfaceColor)
             .border(1.dp, Grey91, RoundedCornerShape(0.dp))
             .padding(horizontal = 15.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,

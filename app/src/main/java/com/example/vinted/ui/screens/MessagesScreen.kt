@@ -1,4 +1,5 @@
 package com.example.vinted.ui.screens
+import com.example.vinted.ui.theme.SurfaceColor
 
 import android.content.Intent
 import androidx.compose.foundation.background
@@ -84,7 +85,7 @@ fun MessagesScreen(
             }
 
             Scaffold(
-                containerColor = Color.White,
+                containerColor = SurfaceColor,
                 topBar = {
                     CenterAlignedTopAppBar(
                         title = {
@@ -99,7 +100,7 @@ fun MessagesScreen(
                                 )
                             }
                         },
-                        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                        colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceColor),
                     )
                 },
                 bottomBar = {

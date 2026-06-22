@@ -1,4 +1,5 @@
 package com.example.vinted.ui.screens
+import com.example.vinted.ui.theme.SurfaceColor
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -65,7 +66,7 @@ fun NotificationSettingsScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceColor),
             )
         },
     ) { padding ->

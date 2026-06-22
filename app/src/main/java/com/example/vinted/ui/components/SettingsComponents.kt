@@ -1,4 +1,5 @@
 package com.example.vinted.ui.components
+import com.example.vinted.ui.theme.SurfaceColor
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -43,7 +44,7 @@ fun SettingsSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(14.dp))
-                .background(Color.White),
+                .background(SurfaceColor),
         ) {
             content()
         }

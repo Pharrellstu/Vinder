@@ -1,4 +1,5 @@
 package com.example.vinted.ui.screens
+import com.example.vinted.ui.theme.SurfaceColor
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -79,7 +80,7 @@ fun EditProfileScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Grey11)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceColor),
             )
         },
     ) { padding ->
@@ -246,7 +247,7 @@ private fun AvatarPreview(
                 .align(Alignment.BottomEnd)
                 .size(26.dp)
                 .clip(CircleShape)
-                .background(Color.White)
+                .background(SurfaceColor)
                 .padding(2.dp)
                 .clip(CircleShape)
                 .background(VinderAzure),
@@ -285,8 +286,8 @@ private fun EditTextField(
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = VinderAzure,
             unfocusedBorderColor = Grey91,
-            focusedContainerColor = Color.White,
-            unfocusedContainerColor = Color.White,
+            focusedContainerColor = SurfaceColor,
+            unfocusedContainerColor = SurfaceColor,
         ),
         modifier = Modifier.fillMaxWidth(),
     )

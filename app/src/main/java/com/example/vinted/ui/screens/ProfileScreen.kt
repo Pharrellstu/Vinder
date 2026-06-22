@@ -1,4 +1,5 @@
 package com.example.vinted.ui.screens
+import com.example.vinted.ui.theme.SurfaceColor
 
 import android.content.Context
 import android.content.Intent
@@ -209,7 +210,7 @@ private fun SettingsButton(onClick: () -> Unit = {}) {
             .size(36.dp)
             .shadow(elevation = 1.dp, shape = CircleShape, spotColor = Color.Black.copy(alpha = 0.06f))
             .clip(CircleShape)
-            .background(Color.White)
+            .background(SurfaceColor)
             .clickable(onClick = onClick)
             .padding(6.dp),
         contentAlignment = Alignment.Center,
@@ -277,8 +278,8 @@ private fun ProfileActionButtons(
         ) {
             ActionButton(
                 label = "Edit profile",
-                bgColor = Color.White,
-                textColor = Color.Black,
+                bgColor = SurfaceColor,
+                textColor = Grey11,
                 borderColor = Grey91,
                 onClick = onEditProfile,
                 modifier = Modifier.weight(1f),
@@ -297,16 +298,16 @@ private fun ProfileActionButtons(
         ) {
             ActionButton(
                 label = "Offers received",
-                bgColor = Color.White,
-                textColor = Color.Black,
+                bgColor = SurfaceColor,
+                textColor = Grey11,
                 borderColor = Grey91,
                 onClick = onShowOffers,
                 modifier = Modifier.weight(1f),
             )
             ActionButton(
                 label = "My orders",
-                bgColor = Color.White,
-                textColor = Color.Black,
+                bgColor = SurfaceColor,
+                textColor = Grey11,
                 borderColor = Grey91,
                 onClick = onShowOrders,
                 modifier = Modifier.weight(1f),
@@ -318,16 +319,16 @@ private fun ProfileActionButtons(
         ) {
             ActionButton(
                 label = "My listings",
-                bgColor = Color.White,
-                textColor = Color.Black,
+                bgColor = SurfaceColor,
+                textColor = Grey11,
                 borderColor = Grey91,
                 onClick = onShowMyListings,
                 modifier = Modifier.weight(1f),
             )
             ActionButton(
                 label = "Wishlist",
-                bgColor = Color.White,
-                textColor = Color.Black,
+                bgColor = SurfaceColor,
+                textColor = Grey11,
                 borderColor = Grey91,
                 onClick = onShowWishlist,
                 modifier = Modifier.weight(1f),

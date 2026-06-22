@@ -1,4 +1,5 @@
 package com.example.vinted.ui.components
+import com.example.vinted.ui.theme.SurfaceColor
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -34,7 +35,7 @@ fun SaleProductCard(
         modifier = modifier
             .width(130.dp)
             .clip(cardShape)
-            .background(Color.White)
+            .background(SurfaceColor)
             .border(1.dp, Grey91, cardShape)
             .clickable(onClick = onClick),
     ) {

@@ -1,4 +1,6 @@
 package com.example.vinted.ui.screens
+import com.example.vinted.ui.theme.SurfaceColor
+import com.example.vinted.ui.theme.Grey97
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -58,7 +60,7 @@ fun HomeScreen(
     var searchExpanded by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
-        containerColor = Color(0xFFF5F6F8),
+        containerColor = Grey97,
         topBar = {
             VinderTopBar(
                 onSearchToggle = {
@@ -219,7 +221,7 @@ private fun VinderTopBar(onSearchToggle: () -> Unit, onNotificationsClick: () ->
                 Icon(Icons.Outlined.Notifications, contentDescription = "Notifications", tint = Grey11)
             }
         },
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceColor),
     )
 }
 
@@ -242,7 +244,7 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
         ),
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White)
+            .background(SurfaceColor)
             .padding(horizontal = 16.dp, vertical = 8.dp),
     )
 }
@@ -256,7 +258,7 @@ private fun CategoryFilterRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White)
+            .background(SurfaceColor)
             .horizontalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -279,7 +281,7 @@ private fun PriceFilterRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White)
+            .background(SurfaceColor)
             .horizontalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
             .padding(bottom = 12.dp),

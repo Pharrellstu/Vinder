@@ -1,4 +1,5 @@
 package com.example.vinted.ui.components
+import com.example.vinted.ui.theme.SurfaceColor
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -38,7 +39,7 @@ fun BottomNavBar(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White.copy(alpha = 0.96f)),
+                .background(SurfaceColor.copy(alpha = 0.96f)),
         ) {
             HorizontalDivider(color = Grey91)
             Row(

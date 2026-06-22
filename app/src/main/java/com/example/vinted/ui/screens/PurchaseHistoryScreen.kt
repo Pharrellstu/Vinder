@@ -1,4 +1,5 @@
 package com.example.vinted.ui.screens
+import com.example.vinted.ui.theme.SurfaceColor
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -73,7 +74,7 @@ fun PurchaseHistoryScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceColor),
             )
         },
     ) { padding ->
@@ -121,7 +122,7 @@ private fun PurchaseRow(purchase: PurchaseHistoryItem) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(Color.White)
+            .background(SurfaceColor)
             .padding(14.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {

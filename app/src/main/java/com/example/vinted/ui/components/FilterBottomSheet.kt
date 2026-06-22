@@ -1,4 +1,5 @@
 package com.example.vinted.ui.components
+import com.example.vinted.ui.theme.SurfaceColor
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -51,7 +52,7 @@ fun FilterBottomSheet(
         modifier = modifier
             .fillMaxWidth()
             .clip(sheetShape)
-            .background(Color.White)
+            .background(SurfaceColor)
             .border(1.dp, Grey91, sheetShape)
             .padding(horizontal = 15.dp)
             .padding(top = 9.dp, bottom = 20.dp),

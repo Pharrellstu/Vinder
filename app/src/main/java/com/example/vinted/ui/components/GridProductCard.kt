@@ -1,4 +1,5 @@
 package com.example.vinted.ui.components
+import com.example.vinted.ui.theme.SurfaceColor
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -45,7 +46,7 @@ fun GridProductCard(
     Column(
         modifier = modifier
             .clip(cardShape)
-            .background(Color.White)
+            .background(SurfaceColor)
             .border(1.dp, Grey91, cardShape)
             .clickable(onClick = onClick),
     ) {
@@ -97,7 +98,7 @@ private fun FavoriteButton(isFavorite: Boolean, onClick: () -> Unit, modifier: M
         modifier = modifier
             .size(28.dp)
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.92f))
+            .background(SurfaceColor.copy(alpha = 0.92f))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
