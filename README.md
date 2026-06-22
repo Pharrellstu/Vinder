@@ -12,6 +12,50 @@ This application contains features such as:
 
 ---
 
+## Setup
+
+Vinder connects to a **cloud-hosted Supabase backend** 
+
+### 1. Create your `local.properties`
+
+The repo root ships a template, `local.properties.example`. Copy it to `local.properties` (this file is git-ignored and must **never** be committed):
+
+```bash
+cp local.properties.example local.properties
+```
+
+### 2. Set the Android SDK path
+
+In `local.properties`, set `sdk.dir` to your local Android SDK location. Android Studio normally fills this in automatically when you open the project:
+
+```
+sdk.dir=/path/to/Android/Sdk
+```
+
+### 3. Configure the Supabase connection
+
+The Supabase project is already hosted in the cloud, so the URL is fixed:
+
+```
+supabase.url=https://ismxghgozvuonkgloguk.supabase.co
+supabase.anon.key=<your-anon-key-from-project-settings>
+```
+
+Get the anon key from the **Supabase dashboard → Project Settings → API → `anon` key** or copy from the submission text in blackboard , then paste it into `local.properties`. Use the **anon** key — never the service role key — and keep the value out of version control.
+
+### 4. Build and run
+
+Both **physical devices** and the **Android emulator** connect directly to the cloud URL over HTTPS — no `10.0.2.2` alias or other emulator networking setup is required.
+
+On build, Gradle reads `local.properties` and injects these values as:
+
+- `BuildConfig.SUPABASE_URL`
+- `BuildConfig.SUPABASE_ANON_KEY`
+
+The app reads its Supabase credentials from `BuildConfig` at runtime, so once `local.properties` is filled in, a normal build is all that's needed.
+
+---
+
 ## Coding Conventions
 
 The team uses the following coding conventions (laws) for clarity and overall code quality.
