@@ -4,7 +4,6 @@ import androidx.compose.ui.graphics.Color
 import com.example.vinted.data.dto.AccountEntity
 import com.example.vinted.data.dto.AccountSideInfoEntity
 import com.example.vinted.data.dto.ItemEntity
-import com.example.vinted.data.dto.ItemPhotoEntity
 import com.example.vinted.ui.initialisers.SupabaseClientInitialiser
 import com.example.vinted.ui.models.ListingItem
 import com.example.vinted.ui.models.UserProfile
@@ -102,7 +101,7 @@ class AccountRepository : IAccountRepository {
     }
 
     private suspend fun List<ItemEntity>.toListingItems(): List<ListingItem> {
-        val covers = coverUrlsByItem(map { it.itemId })
+        val covers = client.coverUrlsByItem(map { it.itemId })
         return map { item ->
             ListingItem(
                 id = item.itemId.toString(),
@@ -112,16 +111,6 @@ class AccountRepository : IAccountRepository {
                 name = item.name,
             )
         }
-    }
-
-    /** Cover photo per item = the first uploaded photo (lowest item_photo_id). */
-    private suspend fun coverUrlsByItem(itemIds: List<Int>): Map<Int, String> {
-        if (itemIds.isEmpty()) return emptyMap()
-        return client.from("item_photo")
-            .select { filter { isIn("item_id", itemIds) } }
-            .decodeList<ItemPhotoEntity>()
-            .groupBy { it.itemId }
-            .mapValues { (_, photos) -> photos.minByOrNull { it.itemPhotoId }!!.photoUrl }
     }
 
     override suspend fun getFollowerCount(accountId: Int): Int {

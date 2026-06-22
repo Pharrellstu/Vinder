@@ -10,6 +10,12 @@ import io.github.jan.supabase.postgrest.from
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+/** Single source of truth for the flat fees applied to every purchase. */
+object PurchaseFees {
+    const val SHIPPING_FEE = 3.95
+    const val PROTECTION_FEE = 0.90
+}
+
 @Serializable
 private data class PurchaseInsert(
     @SerialName("item_id") val itemId: Int,
@@ -77,9 +83,9 @@ class PurchaseRepository : IPurchaseRepository {
                 buyerId = buyerId,
                 sellerId = sellerId,
                 itemPrice = offerPrice,
-                shippingFee = SHIPPING_FEE,
-                protectionFee = PROTECTION_FEE,
-                totalAmount = offerPrice + SHIPPING_FEE + PROTECTION_FEE,
+                shippingFee = PurchaseFees.SHIPPING_FEE,
+                protectionFee = PurchaseFees.PROTECTION_FEE,
+                totalAmount = offerPrice + PurchaseFees.SHIPPING_FEE + PurchaseFees.PROTECTION_FEE,
             )
         )
     }
@@ -143,10 +149,5 @@ class PurchaseRepository : IPurchaseRepository {
                 purchasedAt = p.createdAt,
             )
         }
-    }
-
-    companion object {
-        private const val SHIPPING_FEE = 3.95
-        private const val PROTECTION_FEE = 0.90
     }
 }

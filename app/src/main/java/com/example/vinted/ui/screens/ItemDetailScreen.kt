@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
+import com.example.vinted.data.PurchaseFees
 import com.example.vinted.data.SessionManager
 import com.example.vinted.ui.components.DiscountBadge
 import com.example.vinted.ui.components.SellerProfileCard
@@ -50,8 +51,8 @@ import com.example.vinted.ui.theme.VintedTheme
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-private val SHIPPING_FEE = ItemDetailViewModel.SHIPPING_FEE
-private val BUYER_PROTECTION_FEE = ItemDetailViewModel.BUYER_PROTECTION_FEE
+private val SHIPPING_FEE = PurchaseFees.SHIPPING_FEE
+private val BUYER_PROTECTION_FEE = PurchaseFees.PROTECTION_FEE
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -8,7 +8,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
-/** A single switchable notification preference. */
+/**
+ * A single switchable notification preference. Only notifications the app can actually deliver with
+ * the current backend (Supabase Realtime on tables in the `supabase_realtime` publication) are
+ * listed — each entry is backed by a real Realtime listener in MessageNotificationController.
+ * Options without a delivery mechanism (message requests, reviews, and the marketing pushes) were
+ * intentionally removed rather than shown as toggles that do nothing.
+ */
 enum class NotificationType(
     val group: String,
     val title: String,
@@ -16,16 +22,10 @@ enum class NotificationType(
     val defaultEnabled: Boolean,
 ) {
     NEW_MESSAGES("Messages", "New messages", "When a buyer or seller messages you", true),
-    MESSAGE_REQUESTS("Messages", "Message requests", "When someone new starts a chat", true),
 
     OFFERS("Activity", "Offers", "When someone makes an offer on your item", true),
     ITEM_SOLD("Activity", "Item sold", "When one of your items sells", true),
     NEW_FOLLOWERS("Activity", "New followers", "When someone follows your profile", false),
-    REVIEWS("Activity", "Reviews", "When you receive a new review", true),
-
-    PRICE_DROPS("Marketing", "Price drops", "When items on your wishlist drop in price", false),
-    PROMOTIONS("Marketing", "Promotions & deals", "Discounts and seasonal offers", false),
-    PRODUCT_UPDATES("Marketing", "Vinder updates", "News about new app features", false),
 }
 
 data class NotificationSettingsUiState(

@@ -50,6 +50,8 @@ import com.example.vinted.ui.theme.instrumentSerifNormal
 fun HomeScreen(
     onTabSelected: (Int) -> Unit = {},
     onProductClick: (Product) -> Unit = {},
+    onNotificationsClick: () -> Unit = {},
+    onSellClick: () -> Unit = {},
     viewModel: HomeViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -64,6 +66,7 @@ fun HomeScreen(
                     // Clear any active query when the search field is collapsed.
                     if (!searchExpanded) viewModel.onSearchQueryChanged("")
                 },
+                onNotificationsClick = onNotificationsClick,
             )
         },
         bottomBar = { BottomNavBar(selectedIndex = 0, onItemSelected = onTabSelected) },
@@ -127,7 +130,7 @@ fun HomeScreen(
                         )
                         LazyColumn(state = listState) {
                             item { Spacer(modifier = Modifier.height(16.dp)) }
-                            item { HeroBanner(onSellClick = {}) }
+                            item { HeroBanner(onSellClick = onSellClick) }
                             item { Spacer(modifier = Modifier.height(20.dp)) }
                             if (state.saleItems.isNotEmpty()) {
                                 item { SectionHeader(title = "On sale today", onSeeAll = {}) }
@@ -197,7 +200,7 @@ private fun BackToTopButton(onClick: () -> Unit, modifier: Modifier = Modifier) 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun VinderTopBar(onSearchToggle: () -> Unit) {
+private fun VinderTopBar(onSearchToggle: () -> Unit, onNotificationsClick: () -> Unit = {}) {
     TopAppBar(
         title = {
             Text(
@@ -205,14 +208,14 @@ private fun VinderTopBar(onSearchToggle: () -> Unit) {
                 color = VinderAzure,
                 fontSize = 26.sp,
                 fontFamily = instrumentSerifNormal,
-                fontStyle = FontStyle.Italic,
+                fontStyle = FontStyle.Italic
             )
         },
         actions = {
             IconButton(onClick = onSearchToggle) {
                 Icon(Icons.Outlined.Search, contentDescription = "Search", tint = Grey11)
             }
-            IconButton(onClick = {}) {
+            IconButton(onClick = onNotificationsClick) {
                 Icon(Icons.Outlined.Notifications, contentDescription = "Notifications", tint = Grey11)
             }
         },

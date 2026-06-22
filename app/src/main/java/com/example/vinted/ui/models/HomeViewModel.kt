@@ -1,5 +1,6 @@
 package com.example.vinted.ui.models
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.vinted.data.IItemRepository
@@ -69,6 +70,10 @@ class HomeViewModel(
     private var feedOffset = 0
     private var hasMore = true
 
+    private companion object {
+        const val TAG = "HomeViewModel"
+    }
+
     init {
         load()
     }
@@ -100,7 +105,7 @@ class HomeViewModel(
                 if (page.size < ItemRepository.PAGE_SIZE) hasMore = false
                 feedOffset += page.size
             }.onSuccess { emitFilteredState() }
-             .onFailure { /* silently ignore — user can scroll again */ }
+             .onFailure { Log.e(TAG, "loadMore failed — user can scroll again to retry", it) }
             _isLoadingMore.value = false
         }
     }

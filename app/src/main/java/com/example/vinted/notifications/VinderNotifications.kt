@@ -2,14 +2,18 @@ package com.example.vinted.notifications
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import com.example.vinted.MainActivity
 import com.example.vinted.R
 import com.example.vinted.data.NotificationPreferences
 import com.example.vinted.ui.models.NotificationType
@@ -23,10 +27,13 @@ import com.example.vinted.ui.models.NotificationType
  */
 object VinderNotifications {
 
+    /** Group backing the persistent foreground-service notification. */
+    const val BACKGROUND_GROUP = "Background"
+
     private val channelImportance = mapOf(
         "Messages" to NotificationManager.IMPORTANCE_HIGH,
         "Activity" to NotificationManager.IMPORTANCE_DEFAULT,
-        "Marketing" to NotificationManager.IMPORTANCE_LOW,
+        BACKGROUND_GROUP to NotificationManager.IMPORTANCE_MIN,
     )
 
     fun createChannels(context: Context) {
@@ -68,6 +75,33 @@ object VinderNotifications {
             .build()
 
         NotificationManagerCompat.from(context).notify(id, notification)
+    }
+
+    /**
+     * Builds the silent, ongoing notification shown while [MessageListenerService] keeps the
+     * Realtime message listener alive in the background. Tapping it opens [MainActivity].
+     */
+    fun buildOngoingNotification(context: Context): Notification {
+        val launchIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val contentIntent = PendingIntent.getActivity(
+            context,
+            0,
+            launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        return NotificationCompat.Builder(context, channelId(BACKGROUND_GROUP))
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(context.getString(R.string.app_name))
+            .setContentText("Listening for new messages")
+            .setContentIntent(contentIntent)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setOngoing(true)
+            .setSilent(true)
+            .setShowWhen(false)
+            .build()
     }
 
     private fun channelId(group: String) = "vinder_${group.lowercase()}"

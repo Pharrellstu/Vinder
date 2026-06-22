@@ -11,6 +11,7 @@ import com.example.vinted.data.IAccountRepository
 import com.example.vinted.data.IItemRepository
 import com.example.vinted.data.IPurchaseRepository
 import com.example.vinted.data.ItemRepository
+import com.example.vinted.data.PurchaseFees
 import com.example.vinted.data.PurchaseRepository
 import com.example.vinted.data.SessionManager
 import com.example.vinted.util.ErrorMessages
@@ -38,11 +39,6 @@ class ItemDetailViewModel(
     private val purchaseRepo: IPurchaseRepository = PurchaseRepository(),
 ) : ViewModel() {
 
-    companion object {
-        const val SHIPPING_FEE = 3.95
-        const val BUYER_PROTECTION_FEE = 0.90
-    }
-
     private val _uiState = MutableStateFlow<ItemDetailUiState>(ItemDetailUiState.Loading)
     val uiState: StateFlow<ItemDetailUiState> = _uiState.asStateFlow()
 
@@ -66,7 +62,7 @@ class ItemDetailViewModel(
         }
         viewModelScope.launch {
             runCatching {
-                purchaseRepo.createPurchase(itemId, buyerId, sellerId, itemPrice, SHIPPING_FEE, BUYER_PROTECTION_FEE)
+                purchaseRepo.createPurchase(itemId, buyerId, sellerId, itemPrice, PurchaseFees.SHIPPING_FEE, PurchaseFees.PROTECTION_FEE)
                 itemRepo.markAsSold(itemId)
             }.onSuccess { onSuccess() }
              .onFailure { onError(ErrorMessages.friendlyMessage(it, "Purchase failed")) }
