@@ -323,7 +323,12 @@ private fun MainTabs(onLoggedOut: () -> Unit) {
                 onOpenListing = { openProduct = it },
             )
         }
-        else -> HomeScreen(onTabSelected = onTabSelected, onProductClick = { openProduct = it })
+        else -> HomeScreen(
+            onTabSelected = onTabSelected,
+            onProductClick = { openProduct = it },
+            onNotificationsClick = { showNotifications = true },
+            onSellClick = { showAddProduct = true },
+        )
     }
 }
 
