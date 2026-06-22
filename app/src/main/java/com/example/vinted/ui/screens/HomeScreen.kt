@@ -16,10 +16,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,19 +55,10 @@ fun HomeScreen(
     viewModel: HomeViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var searchExpanded by rememberSaveable { mutableStateOf(false) }
-
     Scaffold(
         containerColor = Grey97,
         topBar = {
-            VinderTopBar(
-                onSearchToggle = {
-                    searchExpanded = !searchExpanded
-                    // Clear any active query when the search field is collapsed.
-                    if (!searchExpanded) viewModel.onSearchQueryChanged("")
-                },
-                onNotificationsClick = onNotificationsClick,
-            )
+            VinderTopBar(onNotificationsClick = onNotificationsClick)
         },
         bottomBar = { BottomNavBar(selectedIndex = 0, onItemSelected = onTabSelected) },
     ) { padding ->
@@ -115,12 +104,6 @@ fun HomeScreen(
                 }
                 Box(modifier = Modifier.fillMaxSize().padding(padding)) {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        if (searchExpanded) {
-                            SearchField(
-                                query = state.searchQuery,
-                                onQueryChange = viewModel::onSearchQueryChanged,
-                            )
-                        }
                         CategoryFilterRow(
                             categories = state.categories,
                             selectedCategory = state.selectedCategory,
@@ -132,7 +115,12 @@ fun HomeScreen(
                         )
                         LazyColumn(state = listState) {
                             item { Spacer(modifier = Modifier.height(16.dp)) }
-                            item { HeroBanner(onSellClick = onSellClick) }
+                            item {
+                                HeroBanner(
+                                    onSellClick = onSellClick,
+                                    imageUrls = state.gridItems.take(2).map { it.coverImageUrl },
+                                )
+                            }
                             item { Spacer(modifier = Modifier.height(20.dp)) }
                             if (state.saleItems.isNotEmpty()) {
                                 item { SectionHeader(title = "On sale today", onSeeAll = {}) }
@@ -202,7 +190,7 @@ private fun BackToTopButton(onClick: () -> Unit, modifier: Modifier = Modifier) 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun VinderTopBar(onSearchToggle: () -> Unit, onNotificationsClick: () -> Unit = {}) {
+private fun VinderTopBar(onNotificationsClick: () -> Unit = {}) {
     TopAppBar(
         title = {
             Text(
@@ -214,9 +202,6 @@ private fun VinderTopBar(onSearchToggle: () -> Unit, onNotificationsClick: () ->
             )
         },
         actions = {
-            IconButton(onClick = onSearchToggle) {
-                Icon(Icons.Outlined.Search, contentDescription = "Search", tint = Grey11)
-            }
             IconButton(onClick = onNotificationsClick) {
                 Icon(Icons.Outlined.Notifications, contentDescription = "Notifications", tint = Grey11)
             }
@@ -225,29 +210,6 @@ private fun VinderTopBar(onSearchToggle: () -> Unit, onNotificationsClick: () ->
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
-    OutlinedTextField(
-        value = query,
-        onValueChange = onQueryChange,
-        singleLine = true,
-        placeholder = { Text("Search items", color = Grey57) },
-        leadingIcon = {
-            Icon(Icons.Outlined.Search, contentDescription = null, tint = Grey57)
-        },
-        shape = RoundedCornerShape(percent = 50),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = VinderAzure,
-            focusedLeadingIconColor = VinderAzure,
-            cursorColor = VinderAzure,
-        ),
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(SurfaceColor)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-    )
-}
 
 @Composable
 private fun CategoryFilterRow(

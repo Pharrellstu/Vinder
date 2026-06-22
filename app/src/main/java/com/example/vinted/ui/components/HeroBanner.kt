@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -23,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
@@ -30,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import com.example.vinted.ui.theme.Grey36
 import com.example.vinted.ui.theme.Grey91
 import com.example.vinted.ui.theme.VinderAzure
@@ -41,6 +44,7 @@ private val cardShape = RoundedCornerShape(10.dp)
 @Composable
 fun HeroBanner(
     onSellClick: () -> Unit,
+    imageUrls: List<String?> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
     val gradient = Brush.linearGradient(
@@ -59,7 +63,7 @@ fun HeroBanner(
     ) {
         BannerContent(onSellClick = onSellClick, modifier = Modifier.weight(1f))
         Spacer(modifier = Modifier.width(12.dp))
-        StackedProductImages()
+        StackedProductImages(imageUrls = imageUrls)
     }
 }
 
@@ -130,25 +134,42 @@ private fun SellButton(onClick: () -> Unit) {
 }
 
 @Composable
-private fun StackedProductImages() {
+private fun StackedProductImages(imageUrls: List<String?> = emptyList()) {
     Box(
         modifier = Modifier
             .width(90.dp)
             .height(110.dp),
         contentAlignment = Alignment.Center,
     ) {
-        ProductImagePlaceholder(rotationDegrees = -4f, modifier = Modifier.align(Alignment.TopStart))
-        ProductImagePlaceholder(rotationDegrees = 6f, modifier = Modifier.align(Alignment.BottomEnd))
+        ProductImageCard(
+            imageUrl = imageUrls.getOrNull(0),
+            rotationDegrees = -4f,
+            modifier = Modifier.align(Alignment.TopStart),
+        )
+        ProductImageCard(
+            imageUrl = imageUrls.getOrNull(1),
+            rotationDegrees = 6f,
+            modifier = Modifier.align(Alignment.BottomEnd),
+        )
     }
 }
 
 @Composable
-private fun ProductImagePlaceholder(rotationDegrees: Float, modifier: Modifier) {
+private fun ProductImageCard(imageUrl: String?, rotationDegrees: Float, modifier: Modifier) {
     Box(
         modifier = modifier
             .size(width = 72.dp, height = 96.dp)
             .rotate(rotationDegrees)
             .clip(cardShape)
             .background(Grey91),
-    )
+    ) {
+        if (!imageUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = imageUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
 }

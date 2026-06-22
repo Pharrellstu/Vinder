@@ -5,8 +5,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -52,6 +55,7 @@ private fun SortOrder.next(): SortOrder = when (this) {
     SortOrder.PRICE_HIGH_TO_LOW -> SortOrder.NONE
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchResultsScreen(
     onTabSelected: (Int) -> Unit = {},
@@ -122,14 +126,19 @@ fun SearchResultsScreen(
                     )
                 }
             }
-            if (showFilters) {
+        }
+        if (showFilters) {
+            ModalBottomSheet(
+                onDismissRequest = { showFilters = false },
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                dragHandle = null,
+            ) {
                 FilterBottomSheet(
                     filters = filters,
                     itemCount = resultCount,
                     onFiltersChange = { filters = it },
                     onReset = { filters = SearchFilters() },
                     onShowResults = { showFilters = false },
-                    modifier = Modifier.align(Alignment.BottomCenter),
                 )
             }
         }
