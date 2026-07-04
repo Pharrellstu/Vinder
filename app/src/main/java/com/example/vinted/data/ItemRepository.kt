@@ -14,6 +14,7 @@ import com.example.vinted.ui.models.EditableItem
 import com.example.vinted.ui.models.MyListing
 import com.example.vinted.ui.models.OfferWithDetails
 import com.example.vinted.ui.models.Product
+import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.storage.storage
 import kotlin.math.roundToInt
@@ -76,13 +77,13 @@ private data class OfferInsert(
     @SerialName("offer_status_id") val offerStatusId: Int,
 )
 
-class ItemRepository : IItemRepository {
+class ItemRepository(
+    private val client: SupabaseClient = SupabaseClientInitialiser.client,
+) : IItemRepository {
 
     companion object {
         const val PAGE_SIZE = 20
     }
-
-    private val client = SupabaseClientInitialiser.client
 
     override suspend fun getCategories(): List<String> {
         // Filter UI prepends the "All" pass-through; selectable lists (e.g. Add

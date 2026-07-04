@@ -176,204 +176,210 @@ fun VinderApp(
     }
 }
 
+// One nullable route replaces the 13 boolean/nullable state vars + priority-ordered if-chain
+// this used to be. Adding a screen means adding one sealed variant + one `when` branch instead
+// of inserting an `if...return` block at the right priority position.
+private sealed interface MainOverlay {
+    object AddProduct : MainOverlay
+    object EditProfile : MainOverlay
+    object Offers : MainOverlay
+    object OrderHistory : MainOverlay
+    object Wishlist : MainOverlay
+    data class EditItem(val itemId: Int) : MainOverlay
+    object MyListings : MainOverlay
+    object Notifications : MainOverlay
+    object ChangePassword : MainOverlay
+    object Settings : MainOverlay
+    data class Chat(val target: ChatTarget) : MainOverlay
+    data class Seller(val accountId: Int) : MainOverlay
+    data class ProductDetail(val product: Product) : MainOverlay
+}
+
 @Composable
 private fun MainTabs(onLoggedOut: () -> Unit) {
     var selectedTab by rememberSaveable { mutableStateOf(0) }
-    var showAddProduct by rememberSaveable { mutableStateOf(false) }
-    var openProduct by remember { mutableStateOf<Product?>(null) }
-    var openSellerId by remember { mutableStateOf<Int?>(null) }
-    var openChat by remember { mutableStateOf<ChatTarget?>(null) }
-    var showEditProfile by rememberSaveable { mutableStateOf(false) }
-    var showOffers by rememberSaveable { mutableStateOf(false) }
-    var showOrderHistory by rememberSaveable { mutableStateOf(false) }
-    var showWishlist by rememberSaveable { mutableStateOf(false) }
-    var showMyListings by rememberSaveable { mutableStateOf(false) }
-    var editItemId by remember { mutableStateOf<Int?>(null) }
-    var showSettings by rememberSaveable { mutableStateOf(false) }
-    var showNotifications by rememberSaveable { mutableStateOf(false) }
-    var showChangePassword by rememberSaveable { mutableStateOf(false) }
+    // Not rememberSaveable: ProductDetail/Chat carry non-Parcelable payloads (Product,
+    // ChatTarget) and were already plain `remember` before this refactor, so this preserves
+    // that behavior. The simple overlays that used to be individually rememberSaveable now
+    // share this same non-saveable state — an accepted trade-off for collapsing 13 vars into 1.
+    var currentOverlay by remember { mutableStateOf<MainOverlay?>(null) }
     var profileReloadToken by rememberSaveable { mutableStateOf(0) }
+    val dialogueRepository = remember { DialogueRepository() }
 
     // Fetch the inbox unread count once on entry so the bottom-nav badge is
     // visible from every tab, not just after opening the Messages screen.
     LaunchedEffect(Unit) {
         val accountId = SessionManager.currentAccountId
         if (accountId != -1) {
-            runCatching { InboxBadge.unread.value = DialogueRepository().getUnreadCount(accountId) }
+            runCatching { InboxBadge.unread.value = dialogueRepository.getUnreadCount(accountId) }
         }
     }
 
     // The "+" FAB (index 2) opens the Add Product flow as a modal over the current tab.
     val onTabSelected: (Int) -> Unit = { index ->
-        if (index == 2) showAddProduct = true else selectedTab = index
+        if (index == 2) currentOverlay = MainOverlay.AddProduct else selectedTab = index
     }
 
-    if (showAddProduct) {
-        AddProductScreen(
-            onBack = { showAddProduct = false },
-            onPosted = { product ->
-                showAddProduct = false
-                openProduct = product
-            },
-        )
-        return
-    }
+    when (val overlay = currentOverlay) {
+        MainOverlay.AddProduct -> {
+            AddProductScreen(
+                onBack = { currentOverlay = null },
+                onPosted = { product -> currentOverlay = MainOverlay.ProductDetail(product) },
+            )
+            return
+        }
 
-    if (showEditProfile) {
-        BackHandler { showEditProfile = false }
-        EditProfileScreen(
-            onBack = { showEditProfile = false },
-            onSaved = {
-                showEditProfile = false
-                profileReloadToken++
-            },
-        )
-        return
-    }
+        MainOverlay.EditProfile -> {
+            BackHandler { currentOverlay = null }
+            EditProfileScreen(
+                onBack = { currentOverlay = null },
+                onSaved = {
+                    currentOverlay = null
+                    profileReloadToken++
+                },
+            )
+            return
+        }
 
-    if (showOffers) {
-        BackHandler { showOffers = false }
-        OffersScreen(onBack = { showOffers = false })
-        return
-    }
+        MainOverlay.Offers -> {
+            BackHandler { currentOverlay = null }
+            OffersScreen(onBack = { currentOverlay = null })
+            return
+        }
 
-    if (showOrderHistory) {
-        BackHandler { showOrderHistory = false }
-        OrderHistoryScreen(onBack = { showOrderHistory = false })
-        return
-    }
+        MainOverlay.OrderHistory -> {
+            BackHandler { currentOverlay = null }
+            OrderHistoryScreen(onBack = { currentOverlay = null })
+            return
+        }
 
-    if (showWishlist) {
-        BackHandler { showWishlist = false }
-        WishlistScreen(
-            onBack = { showWishlist = false },
-            onProductClick = {
-                showWishlist = false
-                openProduct = it
-            },
-        )
-        return
-    }
+        MainOverlay.Wishlist -> {
+            BackHandler { currentOverlay = null }
+            WishlistScreen(
+                onBack = { currentOverlay = null },
+                onProductClick = { currentOverlay = MainOverlay.ProductDetail(it) },
+            )
+            return
+        }
 
-    // Editing a listing reuses the Add Product flow in edit mode. Its own ViewModel key
-    // keeps it separate from the create flow's state. Sits on top of My Listings.
-    val editingItemId = editItemId
-    if (editingItemId != null) {
-        BackHandler { editItemId = null }
-        AddProductScreen(
-            editItemId = editingItemId,
-            viewModel = viewModel(key = "addProductEdit"),
-            onBack = { editItemId = null },
-            onPosted = {
-                editItemId = null
-                showMyListings = true
-            },
-        )
-        return
-    }
+        // Editing a listing reuses the Add Product flow in edit mode. Its own ViewModel key
+        // keeps it separate from the create flow's state. Sits on top of My Listings.
+        is MainOverlay.EditItem -> {
+            BackHandler { currentOverlay = null }
+            AddProductScreen(
+                editItemId = overlay.itemId,
+                viewModel = viewModel(key = "addProductEdit"),
+                onBack = { currentOverlay = null },
+                onPosted = { currentOverlay = MainOverlay.MyListings },
+            )
+            return
+        }
 
-    if (showMyListings) {
-        BackHandler { showMyListings = false }
-        MyListingsScreen(
-            onBack = { showMyListings = false },
-            onEditListing = { itemId ->
-                showMyListings = false
-                editItemId = itemId
-            },
-        )
-        return
-    }
+        MainOverlay.MyListings -> {
+            BackHandler { currentOverlay = null }
+            MyListingsScreen(
+                onBack = { currentOverlay = null },
+                onEditListing = { itemId -> currentOverlay = MainOverlay.EditItem(itemId) },
+            )
+            return
+        }
 
-    // Notifications is a sub-screen of Settings; backing out returns to Settings.
-    if (showNotifications) {
-        NotificationSettingsScreen(onBack = { showNotifications = false })
-        return
-    }
+        // Notifications and Change Password are sub-screens of Settings; backing out returns
+        // to Settings rather than clearing the overlay entirely.
+        MainOverlay.Notifications -> {
+            BackHandler { currentOverlay = MainOverlay.Settings }
+            NotificationSettingsScreen(onBack = { currentOverlay = MainOverlay.Settings })
+            return
+        }
 
-    // Change password is a sub-screen of Settings; backing out returns to Settings.
-    if (showChangePassword) {
-        BackHandler { showChangePassword = false }
-        ChangePasswordScreen(onBack = { showChangePassword = false })
-        return
-    }
+        MainOverlay.ChangePassword -> {
+            BackHandler { currentOverlay = MainOverlay.Settings }
+            ChangePasswordScreen(onBack = { currentOverlay = MainOverlay.Settings })
+            return
+        }
 
-    if (showSettings) {
-        SettingsScreen(
-            onBack = { showSettings = false },
-            onLoggedOut = onLoggedOut,
-            onOpenNotifications = { showNotifications = true },
-            onChangePassword = { showChangePassword = true },
-        )
-        return
-    }
+        MainOverlay.Settings -> {
+            SettingsScreen(
+                onBack = { currentOverlay = null },
+                onLoggedOut = onLoggedOut,
+                onOpenNotifications = { currentOverlay = MainOverlay.Notifications },
+                onChangePassword = { currentOverlay = MainOverlay.ChangePassword },
+            )
+            return
+        }
 
-    // A chat opened from a seller profile or item detail sits on top of them, so
-    // backing out of the chat returns to wherever it was launched from.
-    val chatTarget = openChat
-    if (chatTarget != null) {
-        BackHandler { openChat = null }
-        SellerChatScreen(
-            sellerId = chatTarget.sellerId,
-            itemId = chatTarget.itemId,
-            onBack = { openChat = null },
-        )
-        return
-    }
+        // A chat opened from a seller profile or item detail sits on top of them, so
+        // backing out of the chat returns to wherever it was launched from.
+        is MainOverlay.Chat -> {
+            BackHandler { currentOverlay = null }
+            SellerChatScreen(
+                sellerId = overlay.target.sellerId,
+                itemId = overlay.target.itemId,
+                dialogueRepository = dialogueRepository,
+                onBack = { currentOverlay = null },
+            )
+            return
+        }
 
-    // A seller profile opened from item detail sits on top, so back returns to the item.
-    val sellerId = openSellerId
-    if (sellerId != null) {
-        BackHandler { openSellerId = null }
-        SellerPublicProfileScreen(
-            accountId = sellerId,
-            onBack = { openSellerId = null },
-            onMessageSeller = { openChat = ChatTarget(sellerId = sellerId, itemId = null) },
-        )
-        return
-    }
+        // A seller profile opened from item detail sits on top, so back returns to the item.
+        is MainOverlay.Seller -> {
+            BackHandler { currentOverlay = null }
+            SellerPublicProfileScreen(
+                accountId = overlay.accountId,
+                onBack = { currentOverlay = null },
+                onMessageSeller = {
+                    currentOverlay = MainOverlay.Chat(ChatTarget(sellerId = overlay.accountId, itemId = null))
+                },
+            )
+            return
+        }
 
-    // Tapping a product on the Home feed opens the Item Detail page over the tabs.
-    val product = openProduct
-    if (product != null) {
-        BackHandler { openProduct = null }
-        ItemDetailScreen(
-            product = product,
-            onBack = { openProduct = null },
-            onViewSellerProfile = { openSellerId = product.sellerId },
-            onMessageSeller = {
-                openChat = ChatTarget(sellerId = product.sellerId, itemId = product.id.toIntOrNull())
-            },
-            onEditListing = {
-                openProduct = null
-                editItemId = product.id.toIntOrNull()
-            },
-        )
-        return
+        // Tapping a product on the Home feed opens the Item Detail page over the tabs.
+        is MainOverlay.ProductDetail -> {
+            BackHandler { currentOverlay = null }
+            val product = overlay.product
+            ItemDetailScreen(
+                product = product,
+                onBack = { currentOverlay = null },
+                onViewSellerProfile = { currentOverlay = MainOverlay.Seller(product.sellerId) },
+                onMessageSeller = {
+                    currentOverlay = MainOverlay.Chat(
+                        ChatTarget(sellerId = product.sellerId, itemId = product.id.toIntOrNull())
+                    )
+                },
+                onEditListing = {
+                    currentOverlay = product.id.toIntOrNull()?.let { MainOverlay.EditItem(it) }
+                },
+            )
+            return
+        }
+
+        null -> Unit
     }
 
     when (selectedTab) {
         1 -> SearchResultsScreen(
             onTabSelected = onTabSelected,
-            onProductClick = { openProduct = it },
+            onProductClick = { currentOverlay = MainOverlay.ProductDetail(it) },
         )
         3 -> MessagesScreen(onBack = { onTabSelected(0) }, onTabSelected = onTabSelected)
         4 -> key(profileReloadToken) {
             ProfileScreen(
                 onTabSelected = onTabSelected,
-                onEditProfile = { showEditProfile = true },
-                onOpenSettings = { showSettings = true },
-                onShowOffers = { showOffers = true },
-                onShowOrders = { showOrderHistory = true },
-                onShowWishlist = { showWishlist = true },
-                onShowMyListings = { showMyListings = true },
-                onOpenListing = { openProduct = it },
+                onEditProfile = { currentOverlay = MainOverlay.EditProfile },
+                onOpenSettings = { currentOverlay = MainOverlay.Settings },
+                onShowOffers = { currentOverlay = MainOverlay.Offers },
+                onShowOrders = { currentOverlay = MainOverlay.OrderHistory },
+                onShowWishlist = { currentOverlay = MainOverlay.Wishlist },
+                onShowMyListings = { currentOverlay = MainOverlay.MyListings },
+                onOpenListing = { currentOverlay = MainOverlay.ProductDetail(it) },
             )
         }
         else -> HomeScreen(
             onTabSelected = onTabSelected,
-            onProductClick = { openProduct = it },
-            onNotificationsClick = { showNotifications = true },
-            onSellClick = { showAddProduct = true },
+            onProductClick = { currentOverlay = MainOverlay.ProductDetail(it) },
+            onNotificationsClick = { currentOverlay = MainOverlay.Notifications },
+            onSellClick = { currentOverlay = MainOverlay.AddProduct },
         )
     }
 }
@@ -386,7 +392,12 @@ private data class ChatTarget(val sellerId: Int, val itemId: Int?)
  * Opened from a seller profile or item detail, where only the seller id is known.
  */
 @Composable
-private fun SellerChatScreen(sellerId: Int, itemId: Int?, onBack: () -> Unit) {
+private fun SellerChatScreen(
+    sellerId: Int,
+    itemId: Int?,
+    dialogueRepository: DialogueRepository,
+    onBack: () -> Unit,
+) {
     var conversation by remember(sellerId, itemId) { mutableStateOf<Conversation?>(null) }
     var error by remember(sellerId, itemId) { mutableStateOf<String?>(null) }
     LaunchedEffect(sellerId, itemId) {
@@ -395,7 +406,7 @@ private fun SellerChatScreen(sellerId: Int, itemId: Int?, onBack: () -> Unit) {
             error = "You need to be signed in to message a seller."
             return@LaunchedEffect
         }
-        runCatching { DialogueRepository().getOrCreateDialogue(accountId, sellerId, itemId) }
+        runCatching { dialogueRepository.getOrCreateDialogue(accountId, sellerId, itemId) }
             .onSuccess { conversation = it }
             .onFailure {
                 Log.e("SellerChatScreen", "Failed to open chat with seller $sellerId", it)

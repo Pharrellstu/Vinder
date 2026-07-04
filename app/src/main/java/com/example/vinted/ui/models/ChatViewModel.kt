@@ -9,6 +9,7 @@ import com.example.vinted.data.dto.DialogueMessageEntity
 import com.example.vinted.ui.initialisers.SupabaseClientInitialiser
 import com.example.vinted.util.ErrorMessages
 import com.example.vinted.util.TimeFormat
+import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.realtime.PostgresAction
 import io.github.jan.supabase.realtime.channel
 import io.github.jan.supabase.realtime.decodeRecord
@@ -33,6 +34,7 @@ sealed class ChatUiState {
 class ChatViewModel(
     private val dialogueId: Int,
     private val repository: IDialogueRepository = DialogueRepository(),
+    client: SupabaseClient = SupabaseClientInitialiser.client,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ChatUiState>(ChatUiState.Loading)
@@ -41,7 +43,7 @@ class ChatViewModel(
     private val _sendError = MutableStateFlow<String?>(null)
     val sendError: StateFlow<String?> = _sendError.asStateFlow()
 
-    private val channel = SupabaseClientInitialiser.client.channel("dialogue-$dialogueId")
+    private val channel = client.channel("dialogue-$dialogueId")
 
     private val cleanupScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 

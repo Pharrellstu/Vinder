@@ -12,6 +12,7 @@ import com.example.vinted.ui.initialisers.SupabaseClientInitialiser
 import com.example.vinted.ui.models.ChatMessage
 import com.example.vinted.ui.models.Conversation
 import com.example.vinted.util.TimeFormat
+import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Order
 import io.github.jan.supabase.storage.storage
@@ -35,15 +36,15 @@ interface IDialogueRepository {
     suspend fun getUnreadCount(accountId: Int): Int
 }
 
-class DialogueRepository : IDialogueRepository {
+class DialogueRepository(
+    private val client: SupabaseClient = SupabaseClientInitialiser.client,
+) : IDialogueRepository {
 
     private companion object {
         // Image attachments reuse the public, non-path-restricted `item-photos` bucket
         // under a `chat/` prefix, so no new bucket or storage policy is required.
         const val ATTACHMENT_BUCKET = "item-photos"
     }
-
-    private val client = SupabaseClientInitialiser.client
 
     private val avatarColors = listOf(
         Color(0xFF6C6FB5),
@@ -81,8 +82,16 @@ class DialogueRepository : IDialogueRepository {
     private suspend fun toChatMessages(
         msgDtos: List<DialogueMessageEntity>,
         accountId: Int,
+    ): List<ChatMessage> = toChatMessages(msgDtos, accountId, attachmentUrlsFor(msgDtos.map { it.messageId }))
+
+    // Same as above but takes an already-fetched attachment map, so callers that batch across
+    // multiple dialogues (getConversations) can resolve attachments in one query instead of one
+    // per dialogue.
+    private fun toChatMessages(
+        msgDtos: List<DialogueMessageEntity>,
+        accountId: Int,
+        attachmentMap: Map<Int, String>,
     ): List<ChatMessage> {
-        val attachmentMap = attachmentUrlsFor(msgDtos.map { it.messageId })
         return msgDtos.map { msg ->
             ChatMessage(
                 id = msg.messageId.toString(),
@@ -140,6 +149,20 @@ class DialogueRepository : IDialogueRepository {
                 .mapValues { (_, photos) -> photos.first().photoUrl }
         } else emptyMap()
 
+        // Bulk-fetch every dialogue's messages and their attachments in two queries total,
+        // instead of once per dialogue, then group in Kotlin — same batching pattern as the
+        // account/item/item_photo lookups above.
+        val allDialogueIds = allDialogues.map { it.dialogueId }
+        val messagesByDialogue: Map<Int, List<DialogueMessageEntity>> = client.from("dialogue_message")
+            .select {
+                filter { isIn("dialogue_id", allDialogueIds) }
+                order("timestamp", Order.ASCENDING)
+                order("dialogue_message_id", Order.ASCENDING)
+            }
+            .decodeList<DialogueMessageEntity>()
+            .groupBy { it.dialogueId }
+        val attachmentMap = attachmentUrlsFor(messagesByDialogue.values.flatten().map { it.messageId })
+
         // Pair each conversation with its last-activity instant so the list can be ordered with the
         // most recently active thread first. Avatar colour is keyed off the other account id (not a
         // list position) so it stays stable as threads reorder.
@@ -150,8 +173,8 @@ class DialogueRepository : IDialogueRepository {
             val otherAccount = accountMap[otherAccountId]
             val item = dialogue.itemId?.let { itemMap[it] }
 
-            val msgDtos = fetchMessages(dialogue.dialogueId)
-            val messages = toChatMessages(msgDtos, accountId)
+            val msgDtos = messagesByDialogue[dialogue.dialogueId].orEmpty()
+            val messages = toChatMessages(msgDtos, accountId, attachmentMap)
             val lastActivity = msgDtos.lastOrNull()?.let { TimeFormat.toEpochMillis(it.timestamp) } ?: 0L
 
             // Unread = incoming messages not yet marked read in the DB.
