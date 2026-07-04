@@ -5,6 +5,7 @@ import com.example.vinted.data.AccountPreferences
 import com.example.vinted.data.SessionManager
 import com.example.vinted.data.dto.AccountEntity
 import com.example.vinted.ui.initialisers.SupabaseClientInitialiser
+import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.OtpType
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
@@ -34,9 +35,9 @@ interface IAuthRepository {
     suspend fun findAccountByEmail(email: String): AccountEntity?
 }
 
-open class AuthRepository : IAuthRepository {
-
-    private val supabase = SupabaseClientInitialiser.client
+open class AuthRepository(
+    private val supabase: SupabaseClient = SupabaseClientInitialiser.client,
+) : IAuthRepository {
 
     override suspend fun login(email: String, password: String): Result<Unit> =
         runCatching {
@@ -106,7 +107,7 @@ open class AuthRepository : IAuthRepository {
         }.logError("updatePassword")
 
     override suspend fun logout(): Result<Unit> = runCatching {
-        SupabaseClientInitialiser.client.auth.signOut()
+        supabase.auth.signOut()
         SessionManager.clear()
         AccountPreferences.clear()
     }

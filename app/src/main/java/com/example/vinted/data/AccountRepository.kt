@@ -8,6 +8,7 @@ import com.example.vinted.ui.initialisers.SupabaseClientInitialiser
 import com.example.vinted.ui.models.ListingItem
 import com.example.vinted.ui.models.UserProfile
 import com.example.vinted.ui.theme.VinderAzure
+import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.storage.storage
 import kotlin.math.roundToInt
@@ -29,9 +30,10 @@ interface IAccountRepository {
     suspend fun updateAvatar(accountId: Int, bytes: ByteArray): String
 }
 
-class AccountRepository : IAccountRepository {
+class AccountRepository(
+    private val client: SupabaseClient = SupabaseClientInitialiser.client,
+) : IAccountRepository {
 
-    private val client = SupabaseClientInitialiser.client
     private val ITEM_DEFAULT_BG_COLOR = Color(0xFFE5E5EA)
 
     override suspend fun getProfile(accountId: Int): UserProfile {

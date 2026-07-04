@@ -15,6 +15,7 @@ import com.example.vinted.data.dto.ItemOfferEntity
 import com.example.vinted.data.dto.PurchaseFullEntity
 import com.example.vinted.ui.initialisers.SupabaseClientInitialiser
 import com.example.vinted.ui.models.NotificationType
+import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.postgrest.from
@@ -56,6 +57,11 @@ import kotlinx.coroutines.withTimeoutOrNull
  */
 object MessageNotificationController {
 
+    // Settable rather than a hardcoded singleton reference so tests can swap in a fake client;
+    // this is an `object` (process-wide realtime listener) so constructor injection isn't
+    // possible — a mutable field is the seam instead.
+    internal var client: SupabaseClient = SupabaseClientInitialiser.client
+
     private const val TAG = "MsgNotifications"
     private const val RETRY_DELAY_MS = 5_000L
     private const val SESSION_RESTORE_TIMEOUT_MS = 5_000L
@@ -82,7 +88,6 @@ object MessageNotificationController {
     fun start(context: Context) {
         if (job?.isActive == true) return
         val appContext = context.applicationContext
-        val client = SupabaseClientInitialiser.client
 
         registerNetworkCallback(appContext)
 
@@ -136,7 +141,6 @@ object MessageNotificationController {
     private suspend fun ensureSession(): Boolean {
         if (SessionManager.currentAccountId != SessionManager.NO_ACCOUNT_ID) return true
 
-        val client = SupabaseClientInitialiser.client
         val status = withTimeoutOrNull(SESSION_RESTORE_TIMEOUT_MS) {
             client.auth.sessionStatus.first { it !is SessionStatus.Initializing }
         }
@@ -157,7 +161,7 @@ object MessageNotificationController {
                 // and re-subscribes on a fresh socket instead of waiting on a possibly stale one.
                 val channel = activeChannel ?: return
                 scope.launch {
-                    runCatching { SupabaseClientInitialiser.client.realtime.removeChannel(channel) }
+                    runCatching { client.realtime.removeChannel(channel) }
                 }
             }
         }
@@ -265,7 +269,7 @@ object MessageNotificationController {
     private suspend fun resolveSenderName(senderId: Int): String {
         senderNameCache[senderId]?.let { return it }
         val name = runCatching {
-            SupabaseClientInitialiser.client.from("account")
+            client.from("account")
                 .select { filter { eq("account_id", senderId) } }
                 .decodeList<AccountEntity>()
                 .firstOrNull()

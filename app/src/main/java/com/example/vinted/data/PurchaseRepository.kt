@@ -6,6 +6,7 @@ import com.example.vinted.data.dto.PurchaseFullEntity
 import com.example.vinted.ui.initialisers.SupabaseClientInitialiser
 import com.example.vinted.ui.models.PurchaseHistoryItem
 import com.example.vinted.ui.models.PurchaseWithItem
+import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -46,9 +47,9 @@ interface IPurchaseRepository {
     suspend fun getBoughtItems(buyerId: Int): List<PurchaseHistoryItem>
 }
 
-class PurchaseRepository : IPurchaseRepository {
-
-    private val client = SupabaseClientInitialiser.client
+class PurchaseRepository(
+    private val client: SupabaseClient = SupabaseClientInitialiser.client,
+) : IPurchaseRepository {
 
     override suspend fun createPurchase(
         itemId: Int,
