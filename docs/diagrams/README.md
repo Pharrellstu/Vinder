@@ -6,8 +6,11 @@ PlantUML sources. Edit the `.puml` files and re-render.
 |------|---------|
 | `usecase.puml` | Use case (`Vinder-UseCase.png/.svg`) |
 | `component.puml` | Component (`Vinder-Component.png/.svg`) |
+| `architecture.puml` | System architecture (`Vinder-Architecture.png/.svg`) |
 
-Scope is the target product, not only what's coded today (checkout/payments not built yet).
+Two different scopes, on purpose:
+- `usecase.puml` and `component.puml` describe the **target product**, not only what's coded today (checkout/payments not built yet).
+- `architecture.puml` describes the **as-built system today**: a Jetpack Compose client talking directly to Supabase Cloud (Auth · Postgrest · Realtime · Storage · Functions) via the supabase-kt SDK. No custom backend/microservices; notifications are Realtime-driven (foreground service + local notifications), not FCM.
 
 ## Render
 
