@@ -1,0 +1,101 @@
+@startuml Vinder-Architecture
+' ─────────────────────────────────────────────────────────────
+' Vinder System Architecture (AS-BUILT, reflects the current code)
+'
+' Plain-language, high-level view of how the app is built today:
+' a Jetpack Compose phone app that talks straight to Supabase Cloud.
+' (component.puml shows the aspirational microservices *target*.)
+'
+' Kept deliberately simple: one clear top-to-bottom flow, grouped
+' layers, few arrows. Internal helper classes are folded into the
+' box they belong to rather than drawn separately.
+' ─────────────────────────────────────────────────────────────
+
+title Vinder: how the app is built today
+
+skinparam shadowing false
+skinparam componentStyle uml2
+skinparam linetype ortho
+skinparam nodesep 55
+skinparam ranksep 75
+skinparam defaultTextAlignment center
+skinparam ArrowColor #4E8098
+skinparam ArrowFontColor #6B6B70
+skinparam component {
+  BackgroundColor #F5F6F8
+  BorderColor #4E8098
+  RoundCorner 14
+}
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+  BorderColor #8E8E93
+}
+skinparam cloud {
+  BackgroundColor #FFFFFF
+  BorderColor #4E8098
+}
+skinparam databaseBorderColor #4E8098
+
+top to bottom direction
+
+actor "Person using\nthe app" as User
+
+rectangle "  Phone (Vinder Android app)  " as Phone {
+
+  component "Screens the user sees\n\nHome · Search · Item details\nSell an item · Messages\nProfile & settings · Login / Register" as UI
+
+  component "Screen logic\n\nprepares and holds what\neach screen shows" as Logic
+
+  component "App data & rules\n\naccounts · items · chat · purchases" as Data
+
+  component "Backend connection\n\nSupabase SDK" as SDK
+
+  component "Background message watcher\n\nshows chat notifications\nwhile the app is closed" as Watcher
+
+  component "On-device settings\n\ntheme (light / dark) · notifications" as Settings
+}
+
+component "Phone camera\n& photo gallery" as Camera
+
+cloud "Supabase Cloud (backend)" as Cloud {
+
+  rectangle "What the backend provides" as Services {
+    component "Login &\naccounts" as Auth
+    component "App data service\n(read & write)" as Api
+    component "Live updates\n(instant chat\n& alerts)" as Live
+    component "Photo & file\nstorage" as Store
+    component "Functions\n(planned:\nAI search)" as Fn
+  }
+
+  database "Database\n\naccounts · items · photos\nchats · purchases · offers\n\nprotected per user" as DB
+}
+
+' ── main flow: user → screens → logic → data → backend ──
+User --> UI
+UI   --> Logic
+Logic --> Data
+Data --> SDK
+
+' ── side helpers (kept close, short dashed links) ──
+UI      ..> Camera   : add photos
+UI      ..> Settings
+Watcher ..> Settings
+Watcher --> SDK      : listens for new messages
+Watcher --> User     : notifications
+
+' ── app ↔ cloud ──
+SDK --> Auth
+SDK --> Api
+SDK --> Live
+SDK --> Store
+SDK ..> Fn
+
+Services --> DB : reads & writes
+
+legend bottom
+  Solid arrow = main flow / data     Dashed arrow = uses / optional (not built yet)
+  The app talks to the backend over a secure connection (HTTPS); live updates use a websocket.
+  Shows what exists today. See component.puml for the larger target design.
+endlegend
+
+@enduml
