@@ -16,13 +16,20 @@ import com.example.vinted.ui.models.OfferWithDetails
 import com.example.vinted.ui.models.Product
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.query.Order
 import io.github.jan.supabase.storage.storage
 import kotlin.math.roundToInt
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 interface IItemRepository {
-    suspend fun getFeedItems(searchQuery: String? = null, offset: Int = 0): List<Product>
+    suspend fun getFeedItems(
+        searchQuery: String? = null,
+        category: String? = null,
+        minPrice: Double? = null,
+        maxPrice: Double? = null,
+        offset: Int = 0,
+    ): List<Product>
     suspend fun getCategories(): List<String>
     suspend fun getCategoryNames(): List<String>
     suspend fun getConditionNames(): List<String>
@@ -250,7 +257,21 @@ class ItemRepository(
         }
     }
 
-    override suspend fun getFeedItems(searchQuery: String?, offset: Int): List<Product> {
+    override suspend fun getFeedItems(
+        searchQuery: String?,
+        category: String?,
+        minPrice: Double?,
+        maxPrice: Double?,
+        offset: Int,
+    ): List<Product> {
+        // Resolve the category name to its id(s) before building the query. A name can map to
+        // several rows (duplicate seed data), so match them all. A selected-but-unknown category
+        // yields no results rather than silently falling through to an unfiltered feed. "All" and a
+        // blank name are the pass-through (no category filter).
+        val categoryName = category?.takeUnless { it.isBlank() || it == "All" }
+        val categoryIds = categoryName?.let { categoryIdsFor(it) } ?: emptyList()
+        if (categoryName != null && categoryIds.isEmpty()) return emptyList()
+
         val items = client.from("item")
             .select {
                 filter {
@@ -258,13 +279,31 @@ class ItemRepository(
                     if (!searchQuery.isNullOrBlank()) {
                         ilike("item_name", "%$searchQuery%")
                     }
+                    if (categoryIds.isNotEmpty()) {
+                        isIn("item_category_id", categoryIds)
+                    }
+                    // Price bucket bounds: inclusive lower, exclusive upper (mirrors PriceBucket).
+                    minPrice?.let { gte("item_price", it) }
+                    maxPrice?.let { lt("item_price", it) }
                 }
+                // Newest first (highest item_id). Without an explicit order, PostgREST returns rows
+                // in an undefined order, so range()-based pagination is non-deterministic and a
+                // just-posted item lands on a later page — invisible on the first feed load.
+                order("item_id", Order.DESCENDING)
                 range(offset.toLong(), (offset + PAGE_SIZE - 1).toLong())
             }
             .decodeList<ItemEntity>()
         val favoriteItemIds = getFavoriteItemIds(SessionManager.currentAccountId)
         return buildProducts(items, favoriteItemIds)
     }
+
+    // Category names aren't unique (repeated seeding can create duplicates), so a name may map to
+    // several category ids; the feed matches items against all of them.
+    private suspend fun categoryIdsFor(categoryName: String): List<Int> =
+        client.from("item_category")
+            .select { filter { eq("category_name", categoryName) } }
+            .decodeList<ItemCategoryEntity>()
+            .map { it.categoryId }
 
     override suspend fun getFavoriteItemIds(accountId: Int): Set<Int> {
         if (accountId == SessionManager.NO_ACCOUNT_ID) return emptySet()
@@ -416,28 +455,47 @@ class ItemRepository(
         val coverUrlByItem = client.coverUrlsByItem(items.map { it.itemId })
 
         return items.map { item ->
-            val seller = sellerMap[item.sellerId]
-
-            Product(
-                id = item.itemId.toString(),
-                name = item.name,
-                price = item.price.toFloat(),
-                originalPrice = if (item.discount != null && item.discount > 0) {
-                    val original = item.price / (1.0 - item.discount / 100.0)
-                    original.toFloat()
-                } else null,
-                discountPercent = item.discount,
-                size = null,
-                brand = null,
-                sellerInitial = seller?.accountName?.firstOrNull()?.uppercase() ?: "?",
-                sellerName = seller?.accountName ?: "unknown",
-                rating = 0f,
-                sellerId = item.sellerId,
-                category = categoryNameById[item.categoryId] ?: "",
-                condition = conditionNameById[item.conditionId] ?: "",
+            toProduct(
+                item = item,
+                seller = sellerMap[item.sellerId],
+                categoryName = categoryNameById[item.categoryId] ?: "",
+                conditionName = conditionNameById[item.conditionId] ?: "",
+                coverUrl = coverUrlByItem[item.itemId],
                 isFavorite = item.itemId in favoriteItemIds,
-                coverImageUrl = coverUrlByItem[item.itemId],
             )
         }
+    }
+
+    // Maps one item row (plus its already-resolved seller, category, condition, cover and favourite
+    // state) to a UI Product. Pure — no fetches. originalPrice is back-computed from the current
+    // price and discount percent so the UI can render a strikethrough was-price.
+    private fun toProduct(
+        item: ItemEntity,
+        seller: AccountEntity?,
+        categoryName: String,
+        conditionName: String,
+        coverUrl: String?,
+        isFavorite: Boolean,
+    ): Product {
+        return Product(
+            id = item.itemId.toString(),
+            name = item.name,
+            price = item.price.toFloat(),
+            originalPrice = if (item.discount != null && item.discount > 0) {
+                val original = item.price / (1.0 - item.discount / 100.0)
+                original.toFloat()
+            } else null,
+            discountPercent = item.discount,
+            size = null,
+            brand = null,
+            sellerInitial = seller?.accountName?.firstOrNull()?.uppercase() ?: "?",
+            sellerName = seller?.accountName ?: "unknown",
+            rating = 0f,
+            sellerId = item.sellerId,
+            category = categoryName,
+            condition = conditionName,
+            isFavorite = isFavorite,
+            coverImageUrl = coverUrl,
+        )
     }
 }
