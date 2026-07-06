@@ -103,18 +103,23 @@ class DialogueRepository(
         }
     }
 
-    override suspend fun getConversations(accountId: Int): List<Conversation> {
-        val asCreator = client.from("dialogue")
-            .select { filter { eq("dialogue_creator_id", accountId) } }
-            .decodeList<DialogueEntity>()
+    // Holds everything getConversations pre-fetches in bulk, so the per-dialogue mapping that
+    // follows is pure lookups with no further I/O.
+    private class ConversationLookups(
+        val accountMap: Map<Int, AccountEntity>,
+        val locationMap: Map<Int, String>,
+        val itemMap: Map<Int, ItemEntity>,
+        val coverMap: Map<Int, String>,
+        val messagesByDialogue: Map<Int, List<DialogueMessageEntity>>,
+        val attachmentMap: Map<Int, String>,
+    )
 
-        val asReceiver = client.from("dialogue")
-            .select { filter { eq("dialogue_receiver_id", accountId) } }
-            .decodeList<DialogueEntity>()
-
-        val allDialogues = (asCreator + asReceiver).distinctBy { it.dialogueId }
-        if (allDialogues.isEmpty()) return emptyList()
-
+    // Runs every bulk fetch getConversations needs for the given dialogues and returns them as one
+    // holder. Fetching responsibility only — no Conversation is assembled here.
+    private suspend fun fetchConversationLookups(
+        allDialogues: List<DialogueEntity>,
+        accountId: Int,
+    ): ConversationLookups {
         val otherAccountIds = allDialogues.map { dialogue ->
             if (dialogue.creatorId == accountId) dialogue.receiverId else dialogue.creatorId
         }.distinct()
@@ -163,55 +168,99 @@ class DialogueRepository(
             .groupBy { it.dialogueId }
         val attachmentMap = attachmentUrlsFor(messagesByDialogue.values.flatten().map { it.messageId })
 
+        return ConversationLookups(
+            accountMap = accountMap,
+            locationMap = locationMap,
+            itemMap = itemMap,
+            coverMap = coverMap,
+            messagesByDialogue = messagesByDialogue,
+            attachmentMap = attachmentMap,
+        )
+    }
+
+    // Builds ONE Conversation from a dialogue, the viewer's accountId, and already-resolved inputs.
+    // Pure (no I/O) so both getConversations (batched) and getOrCreateDialogue (single) share this
+    // one construction site. Avatar colour is keyed off the other account id (not a list position)
+    // so it stays stable as threads reorder. Unread = incoming messages not yet marked read in the
+    // DB. itemTitle falls back to the other participant's name when the thread has no item.
+    private fun assembleConversation(
+        dialogue: DialogueEntity,
+        accountId: Int,
+        otherName: String,
+        location: String,
+        itemName: String?,
+        coverUrl: String?,
+        messages: List<ChatMessage>,
+        msgDtos: List<DialogueMessageEntity>,
+    ): Conversation {
+        val otherAccountId = if (dialogue.creatorId == accountId)
+            dialogue.receiverId else dialogue.creatorId
+
+        return Conversation(
+            id = dialogue.dialogueId.toString(),
+            dialogueId = dialogue.dialogueId,
+            handle = otherName,
+            initial = otherName.firstOrNull()?.uppercase() ?: "?",
+            avatarColor = avatarColors[otherAccountId % avatarColors.size],
+            lastMessage = messages.lastOrNull()?.text ?: "",
+            timeLabel = messages.lastOrNull()?.time ?: "",
+            unreadCount = msgDtos.count { it.senderId != accountId && !it.isRead },
+            itemTitle = itemName ?: otherName,
+            fromLocation = location,
+            coverImageUrl = coverUrl,
+            messages = messages,
+        )
+    }
+
+    override suspend fun getConversations(accountId: Int): List<Conversation> {
+        val asCreator = client.from("dialogue")
+            .select { filter { eq("dialogue_creator_id", accountId) } }
+            .decodeList<DialogueEntity>()
+
+        val asReceiver = client.from("dialogue")
+            .select { filter { eq("dialogue_receiver_id", accountId) } }
+            .decodeList<DialogueEntity>()
+
+        val allDialogues = (asCreator + asReceiver).distinctBy { it.dialogueId }
+        if (allDialogues.isEmpty()) return emptyList()
+
+        val lookups = fetchConversationLookups(allDialogues, accountId)
+
         // Pair each conversation with its last-activity instant so the list can be ordered with the
-        // most recently active thread first. Avatar colour is keyed off the other account id (not a
-        // list position) so it stays stable as threads reorder.
+        // most recently active thread first.
         return allDialogues.map { dialogue ->
             val otherAccountId = if (dialogue.creatorId == accountId)
                 dialogue.receiverId else dialogue.creatorId
 
-            val otherAccount = accountMap[otherAccountId]
-            val item = dialogue.itemId?.let { itemMap[it] }
-
-            val msgDtos = messagesByDialogue[dialogue.dialogueId].orEmpty()
-            val messages = toChatMessages(msgDtos, accountId, attachmentMap)
+            val msgDtos = lookups.messagesByDialogue[dialogue.dialogueId].orEmpty()
+            val messages = toChatMessages(msgDtos, accountId, lookups.attachmentMap)
             val lastActivity = msgDtos.lastOrNull()?.let { TimeFormat.toEpochMillis(it.timestamp) } ?: 0L
 
-            // Unread = incoming messages not yet marked read in the DB.
-            val unreadCount = msgDtos.count { it.senderId != accountId && !it.isRead }
-            val otherName = otherAccount?.accountName ?: "Unknown"
-
-            Conversation(
-                id = dialogue.dialogueId.toString(),
-                dialogueId = dialogue.dialogueId,
-                handle = otherName,
-                initial = otherName.firstOrNull()?.uppercase() ?: "?",
-                avatarColor = avatarColors[otherAccountId % avatarColors.size],
-                lastMessage = messages.lastOrNull()?.text ?: "",
-                timeLabel = messages.lastOrNull()?.time ?: "",
-                unreadCount = unreadCount,
-                itemTitle = item?.name ?: otherName,
-                fromLocation = locationMap[otherAccountId].orEmpty(),
-                coverImageUrl = dialogue.itemId?.let { coverMap[it] },
+            assembleConversation(
+                dialogue = dialogue,
+                accountId = accountId,
+                otherName = lookups.accountMap[otherAccountId]?.accountName ?: "Unknown",
+                location = lookups.locationMap[otherAccountId].orEmpty(),
+                itemName = dialogue.itemId?.let { lookups.itemMap[it] }?.name,
+                coverUrl = dialogue.itemId?.let { lookups.coverMap[it] },
                 messages = messages,
+                msgDtos = msgDtos,
             ) to lastActivity
         }
             .sortedByDescending { (_, lastActivity) -> lastActivity }
             .map { (conversation, _) -> conversation }
     }
 
-    override suspend fun getOrCreateDialogue(
-        accountId: Int,
-        otherAccountId: Int,
-        itemId: Int?,
-    ): Conversation {
-        // A dialogue may have been created by either participant, so match both
-        // directions rather than canonicalising to (min, max). Canonicalising would
-        // break the insert below: the `dialogue_insert_creator` RLS policy requires
-        // dialogue_creator_id = the signed-in user, so whenever accountId > otherAccountId
-        // the canonical pair would put the *other* user in the creator slot and the
-        // insert would be silently rejected by RLS.
-        val existing = client.from("dialogue")
+    // All dialogue rows between the two accounts, matched in either creator/receiver direction.
+    // Both the initial lookup and the post-insert concurrency re-fetch go through this one method,
+    // so the participant predicate is written exactly once.
+    // A dialogue may have been created by either participant, so match both directions rather than
+    // canonicalising to (min, max). Canonicalising would break the insert: the
+    // `dialogue_insert_creator` RLS policy requires dialogue_creator_id = the signed-in user, so
+    // whenever accountId > otherAccountId the canonical pair would put the *other* user in the
+    // creator slot and the insert would be silently rejected by RLS.
+    private suspend fun findExistingDialogue(accountId: Int, otherAccountId: Int): List<DialogueEntity> =
+        client.from("dialogue")
             .select {
                 filter {
                     or {
@@ -228,79 +277,85 @@ class DialogueRepository(
             }
             .decodeList<DialogueEntity>()
 
-        // Prefer a thread already tied to this item; otherwise reuse any existing
-        // thread between the two users, and only create a new one if none exists.
-        val dialogue = existing.firstOrNull { itemId != null && it.itemId == itemId }
-            ?: existing.firstOrNull()
-            // `item_id` is intentionally omitted: it's optional thread metadata and is
-            // absent from the deployed `dialogue` schema, so naming it here is rejected.
-            ?: try {
-                client.from("dialogue").insert(
-                    buildJsonObject {
-                        put("dialogue_creator_id", accountId)
-                        put("dialogue_receiver_id", otherAccountId)
-                    }
-                ) { select() }.decodeSingle<DialogueEntity>()
-            } catch (_: Exception) {
-                // Concurrent insert by the other participant beat us — re-fetch the row.
-                client.from("dialogue")
-                    .select {
-                        filter {
-                            or {
-                                and {
-                                    eq("dialogue_creator_id", accountId)
-                                    eq("dialogue_receiver_id", otherAccountId)
-                                }
-                                and {
-                                    eq("dialogue_creator_id", otherAccountId)
-                                    eq("dialogue_receiver_id", accountId)
-                                }
-                            }
-                        }
-                    }
-                    .decodeList<DialogueEntity>()
-                    .first()
-            }
+    // Creates a new dialogue with the caller as creator, falling back to a re-fetch if a concurrent
+    // insert by the other participant beat us.
+    private suspend fun insertDialogue(accountId: Int, otherAccountId: Int): DialogueEntity =
+        // `item_id` is intentionally omitted: it's optional thread metadata and is
+        // absent from the deployed `dialogue` schema, so naming it here is rejected.
+        try {
+            client.from("dialogue").insert(
+                buildJsonObject {
+                    put("dialogue_creator_id", accountId)
+                    put("dialogue_receiver_id", otherAccountId)
+                }
+            ) { select() }.decodeSingle<DialogueEntity>()
+        } catch (_: Exception) {
+            // Concurrent insert by the other participant beat us — re-fetch the row.
+            findExistingDialogue(accountId, otherAccountId).first()
+        }
 
-        val otherAccount = client.from("account")
-            .select { filter { eq("account_id", otherAccountId) } }
+    // Single-row counterparts to the batched lookups in fetchConversationLookups. getOrCreateDialogue
+    // resolves one dialogue at a time, so these fetch by a single id rather than an isIn() list.
+    private suspend fun fetchAccount(accountId: Int): AccountEntity? =
+        client.from("account")
+            .select { filter { eq("account_id", accountId) } }
             .decodeList<AccountEntity>()
             .firstOrNull()
-        val location = client.from("account_side_information")
-            .select { filter { eq("account_id", otherAccountId) } }
+
+    private suspend fun fetchLocation(accountId: Int): String =
+        client.from("account_side_information")
+            .select { filter { eq("account_id", accountId) } }
             .decodeList<AccountSideInfoEntity>()
             .firstOrNull()
             ?.location.orEmpty()
-        val item = dialogue.itemId?.let { id ->
+
+    // itemId is nullable: a thread need not reference an item, in which case there's nothing to fetch.
+    private suspend fun fetchItem(itemId: Int?): ItemEntity? =
+        itemId?.let { id ->
             client.from("item")
                 .select { filter { eq("item_id", id) } }
                 .decodeList<ItemEntity>()
                 .firstOrNull()
         }
-        val coverUrl = dialogue.itemId?.let { id ->
+
+    private suspend fun fetchCoverUrl(itemId: Int?): String? =
+        itemId?.let { id ->
             client.from("item_photo")
                 .select { filter { eq("item_id", id) } }
                 .decodeList<ItemPhotoEntity>()
                 .firstOrNull()?.photoUrl
         }
 
+    override suspend fun getOrCreateDialogue(
+        accountId: Int,
+        otherAccountId: Int,
+        itemId: Int?,
+    ): Conversation {
+        val existing = findExistingDialogue(accountId, otherAccountId)
+
+        // Prefer a thread already tied to this item; otherwise reuse any existing
+        // thread between the two users, and only create a new one if none exists.
+        val dialogue = existing.firstOrNull { itemId != null && it.itemId == itemId }
+            ?: existing.firstOrNull()
+            ?: insertDialogue(accountId, otherAccountId)
+
+        val otherAccount = fetchAccount(otherAccountId)
+        val location = fetchLocation(otherAccountId)
+        val item = fetchItem(dialogue.itemId)
+        val coverUrl = fetchCoverUrl(dialogue.itemId)
+
         val msgDtos = fetchMessages(dialogue.dialogueId)
         val messages = toChatMessages(msgDtos, accountId)
 
-        val otherName = otherAccount?.accountName ?: "Unknown"
-        return Conversation(
-            id = dialogue.dialogueId.toString(),
-            dialogueId = dialogue.dialogueId,
-            handle = otherName,
-            initial = otherName.firstOrNull()?.uppercase() ?: "?",
-            avatarColor = avatarColors[otherAccountId % avatarColors.size],
-            lastMessage = messages.lastOrNull()?.text ?: "",
-            timeLabel = messages.lastOrNull()?.time ?: "",
-            unreadCount = msgDtos.count { it.senderId != accountId && !it.isRead },
-            itemTitle = item?.name ?: otherName,
-            fromLocation = location,
-            coverImageUrl = coverUrl,
+        return assembleConversation(
+            dialogue = dialogue,
+            accountId = accountId,
+            otherName = otherAccount?.accountName ?: "Unknown",
+            location = location,
+            itemName = item?.name,
+            coverUrl = coverUrl,
             messages = messages,
+            msgDtos = msgDtos,
         )
     }
 

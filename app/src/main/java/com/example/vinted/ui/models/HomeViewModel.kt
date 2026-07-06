@@ -28,12 +28,6 @@ enum class PriceBucket(
     UNDER_20("Under \$20", null, 20f),
     FROM_20_TO_50("\$20–\$50", 20f, 50f),
     OVER_50("\$50+", 50f, null);
-
-    fun matches(price: Float): Boolean {
-        if (minInclusive != null && price < minInclusive) return false
-        if (maxExclusive != null && price >= maxExclusive) return false
-        return true
-    }
 }
 
 sealed class HomeUiState {
@@ -59,8 +53,10 @@ class HomeViewModel(
     private val _isLoadingMore = MutableStateFlow(false)
     val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
 
-    // Unfiltered feed kept in memory; accumulates pages across loadMore() calls.
-    private var allItems: List<Product> = emptyList()
+    // Server-filtered feed, accumulated across loadMore() pages. Every active filter (category,
+    // search, price) is applied by getFeedItems in the DB, so this already holds only matching rows
+    // across the whole catalog — not a client-side filter over a single loaded page.
+    private var feedItems: List<Product> = emptyList()
     private var categories: List<String> = emptyList()
 
     private var selectedCategory: String = CATEGORY_ALL
@@ -78,19 +74,21 @@ class HomeViewModel(
         load()
     }
 
+    // Reloads from the first page with the current filters. Called on init and whenever a filter
+    // changes, so the DB query — not an in-memory predicate — decides what the feed contains.
     fun load() {
         feedOffset = 0
         hasMore = true
-        allItems = emptyList()
+        feedItems = emptyList()
         viewModelScope.launch {
             _uiState.value = HomeUiState.Loading
             runCatching {
-                categories = repository.getCategories()
-                val page = repository.getFeedItems(offset = 0)
-                allItems = page
+                if (categories.isEmpty()) categories = repository.getCategories()
+                val page = fetchPage(offset = 0)
+                feedItems = page
                 if (page.size < ItemRepository.PAGE_SIZE) hasMore = false
                 feedOffset = page.size
-            }.onSuccess { emitFilteredState() }
+            }.onSuccess { emitState() }
              .onFailure { _uiState.value = HomeUiState.Error(ErrorMessages.friendlyMessage(it, "Failed to load feed")) }
         }
     }
@@ -100,11 +98,11 @@ class HomeViewModel(
         viewModelScope.launch {
             _isLoadingMore.value = true
             runCatching {
-                val page = repository.getFeedItems(offset = feedOffset)
-                allItems = allItems + page
+                val page = fetchPage(offset = feedOffset)
+                feedItems = feedItems + page
                 if (page.size < ItemRepository.PAGE_SIZE) hasMore = false
                 feedOffset += page.size
-            }.onSuccess { emitFilteredState() }
+            }.onSuccess { emitState() }
              .onFailure { Log.e(TAG, "loadMore failed — user can scroll again to retry", it) }
             _isLoadingMore.value = false
         }
@@ -127,8 +125,8 @@ class HomeViewModel(
 
     fun onToggleFavorite(product: Product) {
         val newValue = !product.isFavorite
-        allItems = allItems.map { if (it.id == product.id) it.copy(isFavorite = newValue) else it }
-        emitFilteredState()
+        feedItems = feedItems.map { if (it.id == product.id) it.copy(isFavorite = newValue) else it }
+        emitState()
 
         val itemId = product.id.toIntOrNull() ?: return
         val accountId = SessionManager.currentAccountId
@@ -136,45 +134,34 @@ class HomeViewModel(
             runCatching {
                 if (newValue) repository.addFavorite(accountId, itemId) else repository.removeFavorite(accountId, itemId)
             }.onFailure {
-                allItems = allItems.map { if (it.id == product.id) it.copy(isFavorite = !newValue) else it }
-                emitFilteredState()
+                feedItems = feedItems.map { if (it.id == product.id) it.copy(isFavorite = !newValue) else it }
+                emitState()
             }
         }
     }
 
-    /**
-     * Applies every active filter together (logical AND) to the cached feed and
-     * publishes a fresh Success state. Each filter is a pass-through when unset:
-     * category "All", blank search query, and [PriceBucket.ANY].
-     */
-    private fun emitFilteredState() {
-        val filtered = allItems.filter { product ->
-            matchesCategory(product) && matchesSearch(product) && matchesPrice(product)
-        }
+    // Translates the active UI filters into a getFeedItems call so the DB applies them across the
+    // whole catalog. PriceBucket bounds are inclusive-lower / exclusive-upper, matching
+    // PriceBucket.matches; "All" category and a blank query are passed through as no-ops.
+    private suspend fun fetchPage(offset: Int): List<Product> =
+        repository.getFeedItems(
+            searchQuery = searchQuery.ifBlank { null },
+            category = selectedCategory,
+            minPrice = selectedPriceBucket.minInclusive?.toDouble(),
+            maxPrice = selectedPriceBucket.maxExclusive?.toDouble(),
+            offset = offset,
+        )
+
+    // Publishes the already-filtered feed. The sale rail is just the discounted subset of what's
+    // loaded, not a separate query.
+    private fun emitState() {
         _uiState.value = HomeUiState.Success(
             categories = categories,
-            saleItems = filtered.filter { (it.discountPercent ?: 0) > 0 },
-            gridItems = filtered,
+            saleItems = feedItems.filter { (it.discountPercent ?: 0) > 0 },
+            gridItems = feedItems,
             selectedCategory = selectedCategory,
             searchQuery = searchQuery,
             selectedPriceBucket = selectedPriceBucket,
         )
-    }
-
-    private fun matchesCategory(product: Product): Boolean {
-        if (selectedCategory == CATEGORY_ALL) return true
-        return product.category == selectedCategory
-    }
-
-    private fun matchesSearch(product: Product): Boolean {
-        if (searchQuery.isBlank()) return true
-        val words = product.name.split(" ")
-        return words.indices.any { start ->
-            words.subList(start, words.size).joinToString(" ").startsWith(searchQuery, ignoreCase = true)
-        }
-    }
-
-    private fun matchesPrice(product: Product): Boolean {
-        return selectedPriceBucket.matches(product.price)
     }
 }

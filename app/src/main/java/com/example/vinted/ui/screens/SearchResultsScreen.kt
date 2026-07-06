@@ -39,7 +39,7 @@ private fun matchesFilters(product: Product, filters: SearchFilters): Boolean {
     val categoryMatch = filters.categories.isEmpty() || product.category in filters.categories
     val conditionMatch = filters.conditions.isEmpty() || product.condition in filters.conditions
     val sizeMatch = filters.sizes.isEmpty() || product.size in filters.sizes
-    val priceMatch = product.price in filters.minPrice..filters.maxPrice
+    val priceMatch = filters.matchesPrice(product.price)
     return categoryMatch && conditionMatch && sizeMatch && priceMatch
 }
 

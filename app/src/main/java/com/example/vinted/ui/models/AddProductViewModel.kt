@@ -71,15 +71,16 @@ class AddProductViewModel(
         viewModelScope.launch {
             _formOptions.value = AddProductFormOptions.Loading
             runCatching {
-                val categories = repository.getCategoryNames()
-                val conditions = repository.getConditionNames()
-                AddProductFormOptions.Loaded(categories, conditions)
+                AddProductFormOptions.Loaded(
+                    categories = repository.getCategoryNames(),
+                    conditions = repository.getConditionNames(),
+                )
             }.onSuccess { _formOptions.value = it }
-                .onFailure {
-                    _formOptions.value = AddProductFormOptions.Error(
-                        ErrorMessages.friendlyMessage(it, "Failed to load categories")
-                    )
-                }
+             .onFailure {
+                _formOptions.value = AddProductFormOptions.Error(
+                    ErrorMessages.friendlyMessage(it, "Failed to load categories")
+                )
+            }
         }
     }
 
@@ -93,57 +94,15 @@ class AddProductViewModel(
         condition: String,
     ) {
         val sellerId = SessionManager.currentAccountId
-        if (sellerId == -1) {
-            _uiState.value = AddProductUiState.Error("Not logged in")
-            return
-        }
-        val priceDouble = price.toDoubleOrNull()
-        if (priceDouble == null || priceDouble <= 0) {
-            _uiState.value = AddProductUiState.Error("Invalid price")
-            return
-        }
-        if (category.isBlank()) {
-            _uiState.value = AddProductUiState.Error("Please choose a category")
-            return
-        }
-        if (condition.isBlank()) {
-            _uiState.value = AddProductUiState.Error("Please choose a condition")
-            return
-        }
-
+        if (sellerId == -1) { _uiState.value = AddProductUiState.Error("Not logged in"); return }
+        val inputError = validateListingInputs(price, category, condition)
+        if (inputError != null) { _uiState.value = AddProductUiState.Error(inputError); return }
+        val priceDouble = price.toDouble()
         viewModelScope.launch {
             _uiState.value = AddProductUiState.Uploading
-            runCatching {
-                val categoryId = repository.getCategoryId(category)
-                val conditionId = repository.getConditionId(condition)
-                // Insert with is_listed=false so incomplete listings are never visible
-                val itemId = repository.insertItem(
-                    sellerId = sellerId,
-                    categoryId = categoryId,
-                    conditionId = conditionId,
-                    name = title,
-                    description = description,
-                    price = priceDouble,
-                )
-                // Read all photo bytes on IO thread before any uploads
-                val photoBytesList = withContext(Dispatchers.IO) {
-                    photoUris.map { uri ->
-                        context.contentResolver.openInputStream(uri)?.readBytes()
-                            ?: error("Failed to read photo: $uri")
-                    }
-                }
-                photoBytesList.forEachIndexed { index, bytes ->
-                    val url = repository.uploadPhoto(itemId, index, bytes)
-                    repository.insertItemPhoto(itemId, url)
-                }
-                // All photos uploaded — flip listing to visible
-                repository.updateItemToListed(itemId)
-                itemId
-            }.onSuccess { newItemId ->
-                _uiState.value = AddProductUiState.Submitted(newItemId)
-            }.onFailure {
-                _uiState.value = AddProductUiState.Error(ErrorMessages.friendlyMessage(it, "Failed to post listing"))
-            }
+            runCatching { createListing(context, sellerId, title, description, priceDouble, category, condition, photoUris) }
+                .onSuccess { _uiState.value = AddProductUiState.Submitted(it) }
+                .onFailure { _uiState.value = AddProductUiState.Error(ErrorMessages.friendlyMessage(it, "Failed to post listing")) }
         }
     }
 
@@ -158,55 +117,90 @@ class AddProductViewModel(
         removedPhotos: List<ItemPhotoEntity>,
         newPhotoUris: List<Uri>,
     ) {
-        val priceDouble = price.toDoubleOrNull()
-        if (priceDouble == null || priceDouble <= 0) {
-            _uiState.value = AddProductUiState.Error("Invalid price")
-            return
-        }
-        if (category.isBlank()) {
-            _uiState.value = AddProductUiState.Error("Please choose a category")
-            return
-        }
-        if (condition.isBlank()) {
-            _uiState.value = AddProductUiState.Error("Please choose a condition")
-            return
-        }
-
+        val inputError = validateListingInputs(price, category, condition)
+        if (inputError != null) { _uiState.value = AddProductUiState.Error(inputError); return }
+        val priceDouble = price.toDouble()
         viewModelScope.launch {
             _uiState.value = AddProductUiState.Uploading
-            runCatching {
-                val categoryId = repository.getCategoryId(category)
-                val conditionId = repository.getConditionId(condition)
-                repository.updateItem(
-                    itemId = itemId,
-                    name = title,
-                    description = description,
-                    price = priceDouble,
-                    categoryId = categoryId,
-                    conditionId = conditionId,
-                )
-                removedPhotos.forEach { repository.deleteItemPhoto(it.itemPhotoId, it.photoUrl) }
-                // Read new photo bytes on IO before uploading, mirroring postListing().
-                val newPhotoBytes = withContext(Dispatchers.IO) {
-                    newPhotoUris.map { uri ->
-                        context.contentResolver.openInputStream(uri)?.readBytes()
-                            ?: error("Failed to read photo: $uri")
-                    }
-                }
-                newPhotoBytes.forEach { bytes ->
-                    val url = repository.uploadPhotoUnique(itemId, bytes)
-                    repository.insertItemPhoto(itemId, url)
-                }
-                itemId
-            }.onSuccess {
-                _uiState.value = AddProductUiState.Submitted(it)
-            }.onFailure {
-                _uiState.value = AddProductUiState.Error(ErrorMessages.friendlyMessage(it, "Failed to update listing"))
-            }
+            runCatching { applyUpdate(context, itemId, title, description, priceDouble, category, condition, removedPhotos, newPhotoUris) }
+                .onSuccess { _uiState.value = AddProductUiState.Submitted(it) }
+                .onFailure { _uiState.value = AddProductUiState.Error(ErrorMessages.friendlyMessage(it, "Failed to update listing")) }
         }
     }
 
     fun resetState() {
         _uiState.value = AddProductUiState.Idle
+    }
+
+    private fun validateListingInputs(price: String, category: String, condition: String): String? {
+        val priceDouble = price.toDoubleOrNull()
+        return when {
+            priceDouble == null || priceDouble <= 0 -> "Invalid price"
+            category.isBlank() -> "Please choose a category"
+            condition.isBlank() -> "Please choose a condition"
+            else -> null
+        }
+    }
+
+    private suspend fun readPhotoBytes(context: Context, uris: List<Uri>): List<ByteArray> =
+        withContext(Dispatchers.IO) {
+            uris.map { uri ->
+                context.contentResolver.openInputStream(uri)?.readBytes()
+                    ?: error("Failed to read photo: $uri")
+            }
+        }
+
+    private suspend fun createListing(
+        context: Context,
+        sellerId: Int,
+        title: String,
+        description: String,
+        price: Double,
+        category: String,
+        condition: String,
+        photoUris: List<Uri>,
+    ): Int {
+        val categoryId = repository.getCategoryId(category)
+        val conditionId = repository.getConditionId(condition)
+        // Insert with is_listed=false so incomplete listings are never visible.
+        val itemId = repository.insertItem(
+            sellerId = sellerId,
+            categoryId = categoryId,
+            conditionId = conditionId,
+            name = title,
+            description = description,
+            price = price,
+        )
+        readPhotoBytes(context, photoUris).forEachIndexed { index, bytes ->
+            repository.insertItemPhoto(itemId, repository.uploadPhoto(itemId, index, bytes))
+        }
+        repository.updateItemToListed(itemId)
+        return itemId
+    }
+
+    private suspend fun applyUpdate(
+        context: Context,
+        itemId: Int,
+        title: String,
+        description: String,
+        price: Double,
+        category: String,
+        condition: String,
+        removedPhotos: List<ItemPhotoEntity>,
+        newPhotoUris: List<Uri>,
+    ): Int {
+        repository.updateItem(
+            itemId = itemId,
+            name = title,
+            description = description,
+            price = price,
+            categoryId = repository.getCategoryId(category),
+            conditionId = repository.getConditionId(condition),
+        )
+        removedPhotos.forEach { repository.deleteItemPhoto(it.itemPhotoId, it.photoUrl) }
+        readPhotoBytes(context, newPhotoUris).forEach { bytes ->
+            repository.insertItemPhoto(itemId, repository.uploadPhotoUnique(itemId, bytes))
+        }
+        return itemId
     }
 }

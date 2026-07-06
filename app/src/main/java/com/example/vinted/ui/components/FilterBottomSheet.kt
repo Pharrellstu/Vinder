@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.vinted.ui.models.PRICE_FILTER_MAX
 import com.example.vinted.ui.models.SearchFilters
 import com.example.vinted.ui.theme.Grey11
 import com.example.vinted.ui.theme.Grey57
@@ -156,7 +157,7 @@ private fun PriceSection(minPrice: Float, maxPrice: Float, onRangeChange: (Float
     RangeSlider(
         value = minPrice..maxPrice,
         onValueChange = { onRangeChange(it.start, it.endInclusive) },
-        valueRange = 0f..500f,
+        valueRange = 0f..PRICE_FILTER_MAX,
         colors = SliderDefaults.colors(
             thumbColor = Color.White,
             activeTrackColor = VinderAzure,
@@ -169,7 +170,7 @@ private fun PriceSection(minPrice: Float, maxPrice: Float, onRangeChange: (Float
     ) {
         Text(text = "€${minPrice.toInt()}", fontSize = 11.sp, color = Grey57)
         Text(
-            text = if (maxPrice >= 500f) "€500+" else "€${maxPrice.toInt()}",
+            text = if (maxPrice >= PRICE_FILTER_MAX) "€${PRICE_FILTER_MAX.toInt()}+" else "€${maxPrice.toInt()}",
             fontSize = 11.sp,
             color = Grey57,
         )
